@@ -1,36 +1,52 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Focora Notes
+
+Focora Notes is a premium, rich-featured digital ink canvas and document workspace application designed for modern note-taking. It combines rich-text document editing with freehand sketching and vector diagrams, offering a unified, high-performance canvas workspace.
+
+## Core Features
+
+### 1. Digital Ink & Sketching Canvas
+* **Pressure-Sensitive Drawing**: High-fidelity pen and highlighter drawing using custom Catmull-Rom smoothing and device pointer pressure scaling.
+* **Vector Geometries & Connectors**: Draw lines, arrows, elbow connectors, curved connectors, rectangles, circles, triangles, diamonds, and ellipses.
+* **Lasso Selection & Resizing**: Select multiple strokes or shapes using a freehand lasso. Translate, duplicate, delete, recolor, and scale selected objects proportionally with corner resize handles.
+* **Point & Stroke Erasers**: Intuitive erasers for targeting specific drawing paths or individual stroke nodes.
+
+### 2. Rich Text Editing (Tiptap Integration)
+* **Slash Commands Palette**: Insert blocks, headings, checklists, blockquotes, code blocks, math formulas, and tables quickly by typing `/`.
+* **Dynamic Tables**: Configurable tables with custom sizing, row/column operations, and custom cell background highlights.
+* **LaTeX Math Blocks**: Beautiful, centered mathematical equations rendered directly in your documents.
+
+### 3. Paper Sheet Layouts
+* **Predefined Dimensions**: Choose from **A4, Letter, A5**, or **Infinite Canvas** layouts.
+* **Sheet Patterns**: Ruled (lines), graph (grid), and blank background sheets, fully responsive to light and dark theme configurations.
+* **Exporting & Backups**: Export pages cleanly to PDF or import/export full notes backups via `.focora` files.
+
+### 4. Hierarchical Document Manager
+* **Navigation Tree**: Structured folders and sub-pages directory tree side panel.
+* **Page Utilities**: Star favorite pages, track word and stroke counts, and restore deleted documents from the integrated Trash Bin.
+
+---
+
+## Tech Stack
+
+* **Framework**: Next.js (with React, TypeScript, and Turbopack dev compiler)
+* **Editor Core**: Tiptap Editor & ProseMirror Core
+* **Icons**: Lucide React
+* **Styling**: Tailwind CSS & CSS HSL Custom Properties
+
+---
 
 ## Getting Started
 
-First, run the development server:
+First, install the local dependencies:
+
+```bash
+npm install
+```
+
+Then, run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Open [http://localhost:3000](http://localhost:3000) in your browser to view and use the Focora Notes workspace.
