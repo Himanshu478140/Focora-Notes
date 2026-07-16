@@ -19,6 +19,9 @@
 
 # production
 /build
+/dist
+dist/
+drive-credentials.json
 
 # misc
 .DS_Store
