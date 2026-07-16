@@ -3,7 +3,11 @@
 import React, { useState, useEffect } from "react";
 import { useApp } from "@/context/AppContext";
 import { useTheme } from "@/context/ThemeContext";
-import { X, User, Sliders, Database, Moon, Sun, Check, ArrowRight, Download, Upload, AlertTriangle, Trash2, Folder, FileText } from "lucide-react";
+import { X, User, Sliders, Database, Moon, Sun, Check, ArrowRight, Download, Upload, AlertTriangle, Trash2, Folder, FileText, Cloud } from "lucide-react";
+import { getAllImages, addImage } from "@/db/images";
+import { blobToBase64, base64ToBlob } from "@/utils/image";
+import { dbPromise, STORES } from "@/db/database";
+import DriveBackupPanel from "./DriveBackupPanel";
 
 export default function SettingsModal() {
   const {
@@ -19,10 +23,11 @@ export default function SettingsModal() {
     restoreFolder,
     deletePagePermanently,
     deleteFolderPermanently,
-    clearTrash
+    clearTrash,
+    flushAllPendingWrites
   } = useApp();
   const { theme, toggleTheme } = useTheme();
-  const [activeTab, setActiveTab] = useState<"profile" | "preferences" | "data" | "trash">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "preferences" | "data" | "drive" | "trash">("profile");
   const [showConfirmEmpty, setShowConfirmEmpty] = useState(false);
   const [itemToDeletePermanently, setItemToDeletePermanently] = useState<{ id: string; type: "folder" | "page"; name: string } | null>(null);
 
@@ -116,17 +121,56 @@ export default function SettingsModal() {
   };
 
   // Export data as JSON
-  const handleExportData = () => {
-    const dataStr = JSON.stringify({ folders, pages }, null, 2);
-    const blob = new Blob([dataStr], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `focora-notes-backup-${new Date().toISOString().split("T")[0]}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+  const handleExportData = async () => {
+    try {
+      await flushAllPendingWrites();
+      const imageRecords = await getAllImages();
+      const base64Images = await Promise.all(
+        imageRecords.map(async (img: any) => {
+          const base64 = await blobToBase64(img.blob);
+          return {
+            id: img.id,
+            pageId: img.pageId,
+            mimeType: img.mimeType,
+            width: img.width,
+            height: img.height,
+            createdAt: img.createdAt,
+            base64: base64
+          };
+        })
+      );
+
+      const sanitizedPages = pages.map(({ _hydrated, ...rest }: any) => rest);
+      const sanitizedFolders = folders.map(({ _hydrated, ...rest }: any) => rest);
+
+      const backupData = {
+        version: 3,
+        exportedAt: new Date().toISOString(),
+        appVersion: "0.1.0",
+        folders: sanitizedFolders,
+        pages: sanitizedPages,
+        images: base64Images
+      };
+
+      const dataStr = JSON.stringify(backupData, null, 2);
+      const blob = new Blob([dataStr], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `focora-notes-backup-${new Date().toISOString().split("T")[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Export failed:", err);
+      setModalConfig({
+        show: true,
+        title: "Export Failed",
+        message: "Failed to generate backup file. Please try again.",
+        type: "error"
+      });
+    }
   };
 
   // Import data from JSON file
@@ -145,12 +189,58 @@ export default function SettingsModal() {
             message: "Importing data will overwrite your current notes. Do you want to continue?",
             type: "warning",
             isConfirm: true,
-            onConfirm: () => {
-              setFolders(data.folders);
-              setPages(data.pages);
-              localStorage.setItem("focora-folders", JSON.stringify(data.folders));
-              localStorage.setItem("focora-pages", JSON.stringify(data.pages));
+            onConfirm: async () => {
+              const sanitizedPages = data.pages.map(({ _hydrated, ...rest }: any) => rest);
+              const sanitizedFolders = data.folders.map(({ _hydrated, ...rest }: any) => rest);
+
+              setFolders(sanitizedFolders);
+              setPages(sanitizedPages);
+              localStorage.setItem("focora-folders", JSON.stringify(sanitizedFolders));
+              localStorage.setItem("focora-pages", JSON.stringify(sanitizedPages));
               
+              // Restore folders, pages and images to IndexedDB
+              try {
+                const db = await dbPromise;
+                const tx = db.transaction([STORES.FOLDERS, STORES.PAGES, STORES.IMAGES], "readwrite");
+                const folderStore = tx.objectStore(STORES.FOLDERS);
+                const pageStore = tx.objectStore(STORES.PAGES);
+                const imageStore = tx.objectStore(STORES.IMAGES);
+                
+                await folderStore.clear();
+                await pageStore.clear();
+                await imageStore.clear();
+
+                for (const f of sanitizedFolders) {
+                  await folderStore.put(f);
+                }
+                for (const p of sanitizedPages) {
+                  await pageStore.put(p);
+                }
+
+                // Restore images if present in version 3+ backup
+                if (data.images && Array.isArray(data.images)) {
+                  for (const img of data.images) {
+                    const blob = base64ToBlob(img.base64, img.mimeType);
+                    await imageStore.put({
+                      id: img.id,
+                      pageId: img.pageId,
+                      blob: blob,
+                      mimeType: img.mimeType,
+                      createdAt: img.createdAt || Date.now(),
+                      width: img.width,
+                      height: img.height,
+                    });
+                  }
+                }
+
+                await new Promise<void>((resolve, reject) => {
+                  tx.oncomplete = () => resolve();
+                  tx.onerror = () => reject(tx.error || new Error("Import transaction failed"));
+                });
+              } catch (err) {
+                console.error("Failed to restore images on import:", err);
+              }
+
               setModalConfig({
                 show: true,
                 title: "Import Success",
@@ -305,6 +395,16 @@ export default function SettingsModal() {
             >
               <Database className="w-[15px] h-[15px] md:w-[17px] md:h-[17px] flex-shrink-0" />
               <span>Backup & Data</span>
+            </button>
+            <button
+              onClick={() => setActiveTab("drive")}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 md:px-4 md:py-3 rounded-xl text-xs md:text-sm font-semibold text-left transition-colors cursor-pointer ${activeTab === "drive"
+                  ? "bg-violet-500/[0.08] text-violet-650 dark:text-violet-300"
+                  : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/[0.04]"
+                }`}
+            >
+              <Cloud className="w-[15px] h-[15px] md:w-[17px] md:h-[17px] flex-shrink-0" />
+              <span>Google Drive</span>
             </button>
             <button
               onClick={() => setActiveTab("trash")}
@@ -526,6 +626,10 @@ export default function SettingsModal() {
                   </button>
                 </div>
               </div>
+             )}
+
+            {activeTab === "drive" && (
+              <DriveBackupPanel />
             )}
 
             {activeTab === "trash" && (

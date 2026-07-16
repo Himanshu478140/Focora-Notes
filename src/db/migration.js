@@ -81,7 +81,8 @@ async function runV1Migration() {
       const store = transaction.objectStore(storeName);
       for (const item of items) {
         if (!item.id) continue;
-        store.put(item);
+        const { _hydrated, ...cleanItem } = item;
+        store.put(cleanItem);
       }
     };
 
@@ -157,10 +158,11 @@ async function migrateImagesToBlobs() {
 
     // Save page back to database
     page.content = updatedContent;
+    const { _hydrated, ...cleanPage } = page;
     await new Promise((resolve, reject) => {
       const tx = db.transaction(STORES.PAGES, "readwrite");
       const store = tx.objectStore(STORES.PAGES);
-      const req = store.put(page);
+      const req = store.put(cleanPage);
       req.onsuccess = () => resolve();
       req.onerror = (e) => reject(new Error("focora/migration: Failed to update page " + page.id + ": " + e.target.error?.message));
     });

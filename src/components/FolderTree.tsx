@@ -314,7 +314,7 @@ export default function FolderTree() {
                   setMenu(null);
                   setRenamingId(menu.id);
                 }}
-                className="w-full flex items-center gap-2.5 px-3.5 py-2 text-left text-xs font-semibold text-gray-750 dark:text-gray-250 hover:bg-gray-100 dark:hover:bg-white/[0.06] transition-colors"
+                className="w-full flex items-center gap-2.5 px-3.5 py-2 text-left text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/[0.06] transition-colors"
               >
                 <Edit2 size={14} className="text-gray-450 dark:text-gray-500" />
                 Rename
@@ -324,7 +324,7 @@ export default function FolderTree() {
                   setMenu(null);
                   addFolder(menu.id);
                 }}
-                className="w-full flex items-center gap-2.5 px-3.5 py-2 text-left text-xs font-semibold text-gray-750 dark:text-gray-250 hover:bg-gray-100 dark:hover:bg-white/[0.06] transition-colors"
+                className="w-full flex items-center gap-2.5 px-3.5 py-2 text-left text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/[0.06] transition-colors"
               >
                 <FolderClosed size={14} className="text-gray-450 dark:text-gray-500" />
                 Create a subfolder
@@ -334,7 +334,7 @@ export default function FolderTree() {
                   setMenu(null);
                   addPage(menu.id);
                 }}
-                className="w-full flex items-center gap-2.5 px-3.5 py-2 text-left text-xs font-semibold text-gray-750 dark:text-gray-250 hover:bg-gray-100 dark:hover:bg-white/[0.06] transition-colors"
+                className="w-full flex items-center gap-2.5 px-3.5 py-2 text-left text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/[0.06] transition-colors"
               >
                 <FileText size={14} className="text-gray-450 dark:text-gray-500" />
                 Add docs
@@ -345,7 +345,7 @@ export default function FolderTree() {
                     e.stopPropagation();
                     setShowOthersSubmenu(!showOthersSubmenu);
                   }}
-                  className="w-full flex items-center justify-between px-3.5 py-2 text-left text-xs font-semibold text-gray-750 dark:text-gray-250 hover:bg-gray-100 dark:hover:bg-white/[0.06] transition-colors"
+                  className="w-full flex items-center justify-between px-3.5 py-2 text-left text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/[0.06] transition-colors"
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
                     <Plus size={14} className="text-gray-455 dark:text-gray-500" />
@@ -419,7 +419,7 @@ export default function FolderTree() {
                     )
                   );
                 }}
-                className="w-full flex items-center gap-2.5 px-3.5 py-2 text-left text-xs font-semibold text-gray-750 dark:text-gray-250 hover:bg-gray-100 dark:hover:bg-white/[0.06] transition-colors"
+                className="w-full flex items-center gap-2.5 px-3.5 py-2 text-left text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/[0.06] transition-colors"
               >
                 <Star size={14} className="text-gray-450 dark:text-gray-500" />
                 Add to favorites

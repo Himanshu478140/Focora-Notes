@@ -6,13 +6,13 @@ import { type Shape } from "@/types/drawing";
 interface UseDrawingHistoryProps {
   localLines: Shape[];
   setLocalLines: React.Dispatch<React.SetStateAction<Shape[]>>;
-  updateAttributes: (attrs: Record<string, any>) => void;
+  onCommit: (lines: Shape[]) => void;
 }
 
 export function useDrawingHistory({
   localLines,
   setLocalLines,
-  updateAttributes,
+  onCommit,
 }: UseDrawingHistoryProps) {
   const [undoStack, setUndoStack] = useState<Shape[][]>([]);
   const [redoStack, setRedoStack] = useState<Shape[][]>([]);
@@ -28,10 +28,8 @@ export function useDrawingHistory({
     setUndoStack((prev) => prev.slice(0, -1));
     setRedoStack((prev) => [localLines, ...prev]);
     setLocalLines(prevLines);
-    updateAttributes({
-      lines: JSON.stringify(prevLines),
-    });
-  }, [localLines, undoStack, setLocalLines, updateAttributes]);
+    onCommit(prevLines);
+  }, [localLines, undoStack, setLocalLines, onCommit]);
 
   const handleRedo = useCallback(() => {
     if (redoStack.length === 0) return;
@@ -39,10 +37,8 @@ export function useDrawingHistory({
     setRedoStack((prev) => prev.slice(1));
     setUndoStack((prev) => [...prev, localLines]);
     setLocalLines(nextLines);
-    updateAttributes({
-      lines: JSON.stringify(nextLines),
-    });
-  }, [localLines, redoStack, setLocalLines, updateAttributes]);
+    onCommit(nextLines);
+  }, [localLines, redoStack, setLocalLines, onCommit]);
 
   return {
     undoStack,

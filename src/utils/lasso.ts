@@ -6,9 +6,9 @@ export function strokeBoundingBox(stroke: CanvasObject): BoundingBox {
     return stroke.bounds;
   }
 
-  if (stroke.type === "textbox") {
-    const w = stroke.width || 250;
-    const h = stroke.height || 40;
+  if (stroke.type === "textbox" || stroke.type === "image") {
+    const w = stroke.width || (stroke.type === "textbox" ? 250 : 300);
+    const h = stroke.height || (stroke.type === "textbox" ? 40 : 200);
     const bounds = {
       minX: stroke.x,
       minY: stroke.y,

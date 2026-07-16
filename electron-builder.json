@@ -1,0 +1,29 @@
+{
+  "appId": "com.focora.notes",
+  "productName": "Focora Notes",
+  "copyright": "Copyright © 2026",
+  "directories": {
+    "output": "dist"
+  },
+  "files": [
+    "package.json",
+    "electron/**/*",
+    "out/**/*"
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      }
+    ],
+    "icon": "public/focora-notes_newlogo.png"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": "always",
+    "createStartMenuShortcut": true,
+    "shortcutName": "Focora Notes"
+  }
+}

@@ -6,6 +6,7 @@ import {
   useState,
   useCallback,
   useEffect,
+  useMemo,
   type ReactNode,
 } from "react";
 import useDB from "@/db/useDB";
@@ -18,6 +19,7 @@ import {
   defaultFolders,
   defaultPages,
 } from "@/data/mock";
+import AppSplashScreen from "@/components/AppSplashScreen";
 
 export type ViewMode = "document" | "all-docs" | "favorites" | "trash";
 
@@ -29,7 +31,6 @@ interface AppState {
   renamingId: string | null;
   sidebarOpen: boolean;
   mobileDrawerOpen: boolean;
-  sidebarCollapsed: boolean;
   recentPageIds: string[];
   editorFontScale: number;
   settingsOpen: boolean;
@@ -50,7 +51,6 @@ interface AppContextType extends AppState {
   toggleFolderExpanded: (id: string) => void;
   toggleSidebar: () => void;
   toggleMobileDrawer: () => void;
-  setSidebarCollapsed: (collapsed: boolean) => void;
   closeMobileDrawer: () => void;
   setSettingsOpen: (open: boolean) => void;
   updatePage: (pageId: string, updates: Partial<Page>) => void;
@@ -73,6 +73,9 @@ interface AppContextType extends AppState {
   addCollection: (name: string, folderIds: string[], pageIds: string[]) => string;
   updateCollection: (id: string, updates: Partial<Collection>) => void;
   deleteCollection: (id: string) => void;
+  hydratePage: (pageId: string) => Promise<void>;
+  flushPendingPageWrite: (pageId: string) => Promise<void>;
+  flushAllPendingWrites: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -105,6 +108,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     restoreFolderFromTrash: dbRestoreFolderFromTrash,
     emptyTrash: dbEmptyTrash,
     refreshData,
+    hydratePage,
+    flushPendingPageWrite,
+    flushAllPendingWrites,
   } = useDB();
 
   const [state, setState] = useState<AppState>({
@@ -115,7 +121,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     renamingId: null,
     sidebarOpen: true,
     mobileDrawerOpen: false,
-    sidebarCollapsed: false,
     recentPageIds: [],
     editorFontScale: 1.0,
     settingsOpen: false,
@@ -208,6 +213,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [state.editorFontScale]);
 
   const setActivePage = useCallback((id: string | null) => {
+    if (state.activePageId) {
+      flushPendingPageWrite(state.activePageId).catch((err) => console.error(err));
+    }
     setState((prev) => {
       if (!id) {
         return {
@@ -218,7 +226,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const filtered = prev.recentPageIds.filter((x) => x !== id);
       const targetPage = pages.find((p) => p.id === id);
       const parentFolderId = targetPage ? targetPage.parentFolderId : prev.selectedFolderId;
-      
+
       return {
         ...prev,
         viewMode: "document",
@@ -228,7 +236,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
         mobileDrawerOpen: false,
       };
     });
-  }, [pages]);
+  }, [pages, state.activePageId, flushPendingPageWrite]);
+
+  // Hydrate active page on page switch
+  useEffect(() => {
+    if (state.activePageId) {
+      const activePage = pages.find((p) => p.id === state.activePageId);
+      if (activePage && !(activePage as any)._hydrated) {
+        hydratePage(state.activePageId).catch((err) => console.error(err));
+      }
+    }
+  }, [state.activePageId, pages, hydratePage]);
 
   const setViewMode = useCallback((mode: ViewMode) => {
     setState((prev) => ({
@@ -272,10 +290,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const closeMobileDrawer = useCallback(() => {
     setState((prev) => ({ ...prev, mobileDrawerOpen: false }));
-  }, []);
-
-  const setSidebarCollapsed = useCallback((collapsed: boolean) => {
-    setState((prev) => ({ ...prev, sidebarCollapsed: collapsed }));
   }, []);
 
   const setSettingsOpen = useCallback((open: boolean) => {
@@ -353,6 +367,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       roughSheetMeta: importedPageData?.roughSheetMeta,
       canvasMeta: importedPageData?.canvasMeta,
       starred: importedPageData?.starred || false,
+      version: importedPageData?.version || 1,
+      pendingSync: true,
     };
 
     dbAddPage(newPage);
@@ -462,21 +478,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       const db = await dbPromise;
       const tx = db.transaction([STORES.PAGES, STORES.TRASH_PAGES, STORES.IMAGES], "readwrite");
-      
+
       const pStore = tx.objectStore(STORES.PAGES);
       const tpStore = tx.objectStore(STORES.TRASH_PAGES);
-      
+
       pStore.delete(pageId);
       tpStore.delete(pageId);
-      
+
       await deleteImagesByPageId(pageId, tx);
-      
+
       await new Promise<void>((resolve, reject) => {
         tx.oncomplete = () => resolve();
         tx.onerror = () => reject(tx.error || new Error("Delete page permanently transaction failed"));
         tx.onabort = () => reject(new Error("Delete page permanently transaction aborted"));
       });
-      
+
       await refreshData();
     } catch (e) {
       console.error("Failed to delete page permanently:", e);
@@ -506,20 +522,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const tx = db.transaction([STORES.TRASH_FOLDERS, STORES.TRASH_PAGES, STORES.IMAGES], "readwrite");
       const fStore = tx.objectStore(STORES.TRASH_FOLDERS);
       const pStore = tx.objectStore(STORES.TRASH_PAGES);
-      
+
       folderIdsToDelete.forEach((fid) => fStore.delete(fid));
       pageIdsToDelete.forEach((pid) => pStore.delete(pid));
-      
+
       for (const pid of pageIdsToDelete) {
         await deleteImagesByPageId(pid, tx);
       }
-      
+
       await new Promise<void>((resolve, reject) => {
         tx.oncomplete = () => resolve();
         tx.onerror = () => reject(tx.error || new Error("Delete folder permanently transaction failed"));
         tx.onabort = () => reject(new Error("Delete folder permanently transaction aborted"));
       });
-      
+
       await refreshData();
     } catch (e) {
       console.error("Failed to delete folder permanently from trash:", e);
@@ -549,7 +565,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     const roughSheetCount = pages.filter((p) => p.pageType === "roughSheet").length;
     const newPageId = `pg-rs-${Date.now()}`;
-    
+
     const newPage: Page = {
       id: newPageId,
       title: `Rough Sheet ${roughSheetCount + 1}`,
@@ -560,6 +576,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       updatedAt: Date.now(),
       pageType: "roughSheet",
       roughSheetMeta: { backgroundPattern: "graph" },
+      version: 1,
+      pendingSync: true,
     };
 
     await dbAddPage(newPage);
@@ -675,67 +693,107 @@ export function AppProvider({ children }: { children: ReactNode }) {
       for (const p of nextPages) {
         await store.put(p);
       }
-      await refreshData();
     } catch (e) {
       console.error("Failed to set pages:", e);
     }
   }, [pages, refreshData]);
 
-  if (dbLoading) {
-    return (
-      <div className="fixed inset-0 bg-[#0c0c0e] flex flex-col items-center justify-center z-50 text-white select-none font-sans">
-        <div className="relative flex flex-col items-center animate-scale-in">
-          <div className="w-10 h-10 rounded-full border-4 border-violet-500/10 border-t-violet-500 animate-spin" />
-          <h2 className="mt-5 text-sm font-bold tracking-tight text-gray-200">Initializing Database</h2>
-          <p className="mt-1.5 text-[10px] text-gray-500">Migrating storage & loading notes...</p>
-        </div>
-      </div>
-    );
-  }
+  const contextValue = useMemo(
+    () => ({
+      ...state,
+      folders,
+      pages,
+      trashFolders,
+      trashPages,
+      collections,
+      setFolders,
+      setPages,
+      setActivePage,
+      setViewMode,
+      setSelectedFolderId,
+      setRenamingId,
+      toggleFolderExpanded,
+      toggleSidebar,
+      toggleMobileDrawer,
+      closeMobileDrawer,
+      setSettingsOpen,
+      updatePage,
+      addPage,
+      addFolder,
+      renameFolder,
+      renamePage,
+      deleteFolder,
+      deletePage,
+      restorePage,
+      restoreFolder,
+      deletePagePermanently,
+      deleteFolderPermanently,
+      clearTrash,
+      addRoughSheet,
+      navigateToPage,
+      collapseAllFolders,
+      expandAllFolders,
+      changeEditorFontScale,
+      addCollection,
+      updateCollection,
+      deleteCollection,
+      hydratePage,
+      flushPendingPageWrite,
+      flushAllPendingWrites,
+    }),
+    [
+      state,
+      folders,
+      pages,
+      trashFolders,
+      trashPages,
+      collections,
+      setFolders,
+      setPages,
+      setActivePage,
+      setViewMode,
+      setSelectedFolderId,
+      setRenamingId,
+      toggleFolderExpanded,
+      toggleSidebar,
+      toggleMobileDrawer,
+      closeMobileDrawer,
+      setSettingsOpen,
+      updatePage,
+      addPage,
+      addFolder,
+      renameFolder,
+      renamePage,
+      deleteFolder,
+      deletePage,
+      restorePage,
+      restoreFolder,
+      deletePagePermanently,
+      deleteFolderPermanently,
+      clearTrash,
+      addRoughSheet,
+      navigateToPage,
+      collapseAllFolders,
+      expandAllFolders,
+      changeEditorFontScale,
+      addCollection,
+      updateCollection,
+      deleteCollection,
+      hydratePage,
+      flushPendingPageWrite,
+      flushAllPendingWrites,
+    ]
+  );
+
+  const isAppReady = !dbLoading;
 
   return (
-    <AppContext.Provider
-      value={{
-        ...state,
-        folders,
-        pages,
-        trashFolders,
-        trashPages,
-        collections,
-        setFolders,
-        setPages,
-        setActivePage,
-        setViewMode,
-        setSelectedFolderId,
-        setRenamingId,
-        toggleFolderExpanded,
-        toggleSidebar,
-        toggleMobileDrawer,
-        setSidebarCollapsed,
-        closeMobileDrawer,
-        setSettingsOpen,
-        updatePage,
-        addPage,
-        addFolder,
-        renameFolder,
-        renamePage,
-        deleteFolder,
-        deletePage,
-        restorePage,
-        restoreFolder,
-        deletePagePermanently,
-        deleteFolderPermanently,
-        clearTrash,
-        addRoughSheet,
-        navigateToPage,
-        collapseAllFolders,
-        expandAllFolders,
-        changeEditorFontScale,
-        addCollection,
-        updateCollection,
-        deleteCollection,
-      }}
-    >
+    <AppContext.Provider value={contextValue}>
+      <AppSplashScreen
+        isAppReady={isAppReady}
+        error={dbError}
+        onRetry={refreshData}
+      />
       {children}
     </AppContext.Provider>
   );

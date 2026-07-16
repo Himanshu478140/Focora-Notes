@@ -743,6 +743,7 @@ export const redrawCanvas = (
   dy = 0,
   lassoPath: Point[] = []
 ) => {
+
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
 
@@ -1157,6 +1158,40 @@ export const redrawCanvas = (
     }
     ctx.restore();
   });
+
+  // [LassoDebug] logs and drawing loop
+  if (lassoPath && lassoPath.length > 0) {
+    const dpr = typeof window !== "undefined" ? (window.devicePixelRatio || 1) : 1;
+    console.log("[LassoDebug]", {
+      lassoPointsLength: lassoPath.length,
+      firstPoint: lassoPath[0],
+      latestPoint: lassoPath[lassoPath.length - 1],
+      renderCalled: true,
+      canvasWidth: canvas.width,
+      canvasHeight: canvas.height,
+      dpr,
+    });
+
+    if (lassoPath.length > 1) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(lassoPath[0].x, lassoPath[0].y);
+      for (let i = 1; i < lassoPath.length; i++) {
+        ctx.lineTo(lassoPath[i].x, lassoPath[i].y);
+      }
+      ctx.closePath();
+
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = "rgba(124, 92, 252, 0.85)";
+      ctx.setLineDash([5, 5]);
+      ctx.stroke();
+
+      ctx.fillStyle = "rgba(124, 92, 252, 0.06)";
+      ctx.fill();
+
+      ctx.restore();
+    }
+  }
 
   if (selectedIds && selectedIds.size > 0) {
     let minX = Infinity;

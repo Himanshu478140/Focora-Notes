@@ -13,6 +13,7 @@ export interface DrawingPoint {
 
 export interface DrawingStroke {
   id: string;
+  pageId?: string;
   type?: "stroke";
   x: number; // Start coordinate X
   y: number; // Start coordinate Y
@@ -29,6 +30,7 @@ export interface DrawingStroke {
 
 export interface CanvasTextBox {
   id: string;
+  pageId?: string;
   type: "textbox";
   x: number;
   y: number;
@@ -42,7 +44,45 @@ export interface CanvasTextBox {
   bounds?: BoundingBox;
 }
 
-export type CanvasObject = DrawingStroke | CanvasTextBox;
+export interface CanvasImageObject {
+  id: string;
+  pageId?: string;
+  type: "image";
+  src: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation?: number;
+  alt?: string;
+  bounds?: BoundingBox;
+}
+
+export type CanvasObject = DrawingStroke | CanvasTextBox | CanvasImageObject;
+
+export interface CanvasPageMeta {
+  id: string;
+  backgroundPattern?: BackgroundPattern;
+  pageColor?: string;
+}
+
+export interface CanvasData {
+  drawings: DrawingStroke[];
+  textboxes: CanvasTextBox[];
+  images: CanvasImageObject[];
+  viewport?: {
+    panX: number;
+    panY: number;
+    zoom: number;
+  };
+  metadata?: {
+    layoutMode?: "infinite" | "paper";
+    paperSize?: "A4" | "A5" | "letter";
+    orientation?: "portrait" | "landscape";
+    pages?: CanvasPageMeta[];
+  };
+  version?: number;
+}
 
 export type BackgroundPattern =
   | "blank"
@@ -91,6 +131,8 @@ export interface Page {
   createdAt: number;
   updatedAt: number;
   drawings?: CanvasObject[];
+  activeView?: "document" | "canvas";
+  canvasData?: CanvasData;
   pageType?: "normal" | "roughSheet";
   roughSheetMeta?: RoughSheetMeta;
   canvasMeta?: { extraHeight?: number };
@@ -101,6 +143,8 @@ export interface Page {
   pageLayout?: PageLayout;
   deletedAt?: number;
   originalParentFolderId?: string | null;
+  version: number;
+  pendingSync?: boolean;
 }
 
 export interface Collection {
@@ -205,6 +249,8 @@ export function migrateMockDataToFoldersAndPages(oldWorkspaces: any[]): { folder
             roughSheetMeta: pg.roughSheetMeta,
             canvasMeta: pg.canvasMeta,
             starred: pg.starred || false,
+            version: pg.version || 1,
+            pendingSync: true,
           });
         });
       });

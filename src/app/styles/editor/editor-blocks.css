@@ -1,0 +1,172 @@
+/* ==============================
+   Tiptap Task List Styles
+   ============================== */
+
+ul[data-type="taskList"] {
+  list-style: none;
+  padding: 0 !important;
+  margin: 0.5rem 0;
+}
+
+ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  margin: 0.25rem 0;
+  padding-left: 0 !important;
+}
+
+ul[data-type="taskList"] li > label {
+  flex: 0 0 auto;
+  margin-right: 0.5rem;
+  user-select: none;
+  margin-top: 0.25rem;
+}
+
+ul[data-type="taskList"] li > label input {
+  cursor: pointer;
+  accent-color: #7c5cfc;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 4px;
+}
+
+ul[data-type="taskList"] li > div {
+  flex: 1 1 auto;
+}
+
+ul[data-type="taskList"] li > div > p {
+  margin: 0 !important;
+}
+
+ul[data-type="taskList"] li[data-checked="true"] > div {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+
+/* ==============================
+   Block Background color classes
+   ============================== */
+[data-block-background] {
+  padding: 8px 12px !important;
+  border-radius: 8px !important;
+  margin-top: 6px !important;
+  margin-bottom: 6px !important;
+}
+
+li[data-block-background] {
+  list-style-position: inside !important;
+}
+
+li[data-block-background] > p {
+  display: inline !important;
+  margin: 0 !important;
+}
+
+.block-bg-gray   { background-color: rgba(120, 120, 120, 0.1) !important; }
+.block-bg-brown  { background-color: rgba(139, 92, 26, 0.1) !important; }
+.block-bg-orange { background-color: rgba(249, 115, 22, 0.08) !important; }
+.block-bg-yellow { background-color: rgba(234, 179, 8, 0.08) !important; }
+.block-bg-green  { background-color: rgba(16, 185, 129, 0.08) !important; }
+.block-bg-blue   { background-color: rgba(59, 130, 246, 0.08) !important; }
+.block-bg-purple { background-color: rgba(139, 92, 246, 0.08) !important; }
+.block-bg-pink   { background-color: rgba(236, 72, 153, 0.08) !important; }
+.block-bg-red    { background-color: rgba(239, 68, 68, 0.08) !important; }
+
+.block-bg-lightYellow { background-color: rgba(253, 224, 71, 0.22) !important; }
+.block-bg-lightGreen  { background-color: rgba(74, 222, 128, 0.22) !important; }
+.block-bg-lightBlue   { background-color: rgba(96, 165, 250, 0.22) !important; }
+.block-bg-lightPink   { background-color: rgba(244, 114, 182, 0.22) !important; }
+.block-bg-lightRed    { background-color: rgba(239, 68, 68, 0.22) !important; }
+
+.dark .block-bg-gray   { background-color: rgba(255, 255, 255, 0.06) !important; }
+.dark .block-bg-brown  { background-color: rgba(139, 92, 26, 0.2) !important; }
+.dark .block-bg-orange { background-color: rgba(249, 115, 22, 0.16) !important; }
+.dark .block-bg-yellow { background-color: rgba(234, 179, 8, 0.15) !important; }
+.dark .block-bg-green  { background-color: rgba(16, 185, 129, 0.15) !important; }
+.dark .block-bg-blue   { background-color: rgba(59, 130, 246, 0.15) !important; }
+.dark .block-bg-purple { background-color: rgba(139, 92, 246, 0.15) !important; }
+.dark .block-bg-pink   { background-color: rgba(236, 72, 153, 0.15) !important; }
+.dark .block-bg-red    { background-color: rgba(239, 68, 68, 0.15) !important; }
+
+.dark .block-bg-lightYellow { background-color: rgba(253, 224, 71, 0.28) !important; }
+.dark .block-bg-lightGreen  { background-color: rgba(74, 222, 128, 0.28) !important; }
+.dark .block-bg-lightBlue   { background-color: rgba(96, 165, 250, 0.28) !important; }
+.dark .block-bg-lightPink   { background-color: rgba(244, 114, 182, 0.28) !important; }
+.dark .block-bg-lightRed    { background-color: rgba(239, 68, 68, 0.28) !important; }
+
+/* Force custom stylus/eraser cursor across editor contents when drawing */
+.global-draw-active .ProseMirror,
+.global-draw-active .ProseMirror * {
+  cursor: inherit !important;
+}
+
+/* ==============================
+   Floating Text Block Styles
+   ============================== */
+.floating-text-block {
+  position: absolute;
+  min-width: 150px;
+  max-width: 100%;
+  word-wrap: break-word;
+  z-index: 40;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.floating-text-block:hover,
+.floating-text-block:focus-within,
+.floating-text-block.has-focus,
+.floating-text-block.ProseMirror-selectednode {
+  border: 1px dashed rgba(124, 92, 252, 0.4);
+  background: rgba(124, 92, 252, 0.02);
+}
+
+.dark .floating-text-block:hover,
+.dark .floating-text-block:focus-within,
+.dark .floating-text-block.has-focus,
+.dark .floating-text-block.ProseMirror-selectednode {
+  border-color: rgba(167, 139, 250, 0.4);
+  background: rgba(167, 139, 250, 0.03);
+}
+
+.floating-text-block:not(:hover):not(:focus-within):not(.has-focus):not(.ProseMirror-selectednode) {
+  border-color: transparent;
+  background: transparent;
+}
+
+/* ==============================
+   Side-by-Side Image Columns
+   ============================== */
+
+.column-row {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  gap: 16px;
+  align-items: flex-start;
+  margin: 1.5rem 0;
+}
+
+.column-cell {
+  flex: 1;
+  min-width: 0;
+}
+
+.column-drop-indicator {
+  pointer-events: none;
+}
+
+body.global-dragging .absolute.bottom-full.left-1\/2,
+body.global-dragging .resize-handle {
+  pointer-events: none !important;
+}
+
+.floating-image {
+  position: absolute;
+  user-select: none;
+  touch-action: none;
+  z-index: 10;
+}

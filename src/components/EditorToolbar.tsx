@@ -54,7 +54,8 @@ interface EditorToolbarProps {
     | "triangle"
     | "diamond"
     | "ellipse"
-    | "textbox";
+    | "textbox"
+    | "hand";
   setDrawTool: (tool: any) => void;
   fillColor: string;
   setFillColor: (color: string) => void;
@@ -121,6 +122,69 @@ export default function EditorToolbar({
 }: EditorToolbarProps) {
   const iconSize = 15;
 
+  const [showRightFade, setShowRightFade] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const checkScroll = () => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      const { scrollLeft, scrollWidth, clientWidth } = container;
+      setShowRightFade(scrollWidth > clientWidth && scrollLeft < scrollWidth - clientWidth - 1);
+    }
+  };
+
+  const isDownRef = useRef(false);
+  const startXRef = useRef(0);
+  const scrollLeftRef = useRef(0);
+  const hasMovedRef = useRef(false);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    isDownRef.current = true;
+    hasMovedRef.current = false;
+    startXRef.current = e.pageX - (scrollContainerRef.current?.offsetLeft || 0);
+    scrollLeftRef.current = scrollContainerRef.current?.scrollLeft || 0;
+    
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.style.userSelect = "none";
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDownRef.current) return;
+    const x = e.pageX - (scrollContainerRef.current?.offsetLeft || 0);
+    const walk = (x - startXRef.current) * 1.5;
+    
+    if (Math.abs(walk) > 5) {
+      hasMovedRef.current = true;
+    }
+    
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollLeft = scrollLeftRef.current - walk;
+    }
+  };
+
+  const handleMouseUpOrLeave = () => {
+    isDownRef.current = false;
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.style.removeProperty("user-select");
+    }
+  };
+
+  const handleChildClickCapture = (e: React.MouseEvent) => {
+    if (hasMovedRef.current) {
+      e.stopPropagation();
+      e.preventDefault();
+      hasMovedRef.current = false;
+    }
+  };
+
+  useEffect(() => {
+    checkScroll();
+    window.addEventListener("resize", checkScroll);
+    return () => window.removeEventListener("resize", checkScroll);
+  }, [editor, drawModeActive]);
+
   // Link Modal States
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
@@ -140,7 +204,7 @@ export default function EditorToolbar({
     return (
       <div
         id="editor-toolbar"
-        className="flex items-center gap-0.5 px-3 py-1.5 border border-gray-200 dark:border-white/[0.08] rounded-xl bg-white dark:bg-[#1c1c1c] shadow-lg overflow-x-auto scrollbar-none flex-shrink-0 mx-auto opacity-50 pointer-events-none w-fit"
+        className="flex items-center gap-0.5 px-3 py-1.5 border border-gray-200 dark:border-white/[0.08] rounded-xl bg-white dark:bg-[#1c1c1c] shadow-lg flex-shrink-0 mx-auto opacity-50 pointer-events-none w-fit max-w-full"
       />
     );
   }
@@ -151,86 +215,107 @@ export default function EditorToolbar({
   return (
     <div
       id="editor-toolbar"
-      className="flex items-center gap-0.5 px-3 py-1.5 border border-gray-200 dark:border-white/[0.08] rounded-xl bg-white dark:bg-[#1c1c1c] shadow-lg overflow-x-auto scrollbar-none flex-shrink-0 mx-auto w-fit"
+      className="flex items-center gap-0.5 px-3 py-1.5 border border-gray-200 dark:border-white/[0.08] rounded-xl bg-white dark:bg-[#1c1c1c] shadow-lg flex-shrink-0 mx-auto w-fit max-w-full relative overflow-hidden"
     >
-      {/* History */}
-      <ToolbarButton
-        id="toolbar-undo"
-        icon={<Undo size={iconSize} />}
-        title={drawModeActive ? "Undo drawing stroke (Ctrl+Z)" : "Undo (Ctrl+Z)"}
-        onClick={() => {
-          if (drawModeActive) {
-            onUndoDraw();
-          } else {
-            editor.chain().focus().undo().run();
-          }
-        }}
-        disabled={!canUndo}
-      />
-      <ToolbarButton
-        id="toolbar-redo"
-        icon={<Redo size={iconSize} />}
-        title={drawModeActive ? "Redo drawing stroke (Ctrl+Y / Ctrl+Shift+Z)" : "Redo (Ctrl+Y)"}
-        onClick={() => {
-          if (drawModeActive) {
-            onRedoDraw();
-          } else {
-            editor.chain().focus().redo().run();
-          }
-        }}
-        disabled={!canRedo}
-      />
-
-      <ToolbarDivider />
-
-      <div className="grid grid-cols-1 grid-rows-1 items-center grow">
-        {/* Normal Mode Controls */}
-        <div
-          inert={drawModeActive ? true : undefined}
-          aria-hidden={drawModeActive}
-          className={`col-start-1 row-start-1 flex items-center gap-0.5 justify-start w-full transition-all duration-150 ${
-            !drawModeActive ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
-          }`}
-        >
-          <TextToolbar
-            editor={editor}
-            setLinkUrl={setLinkUrl}
-            setShowLinkModal={setShowLinkModal}
+      <div
+        ref={scrollContainerRef}
+        onScroll={checkScroll}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUpOrLeave}
+        onMouseLeave={handleMouseUpOrLeave}
+        onClickCapture={handleChildClickCapture}
+        className="flex items-center gap-0.5 overflow-x-auto scrollbar-none flex-1 min-w-0"
+      >
+        <div className="flex items-center gap-0.5 flex-shrink-0">
+          {/* History */}
+          <ToolbarButton
+            id="toolbar-undo"
+            icon={<Undo size={iconSize} />}
+            title={drawModeActive ? "Undo drawing stroke (Ctrl+Z)" : "Undo (Ctrl+Z)"}
+            onClick={() => {
+              if (drawModeActive) {
+                onUndoDraw();
+              } else {
+                editor.chain().focus().undo().run();
+              }
+            }}
+            disabled={!canUndo}
           />
-        </div>
-
-        {/* Draw Mode Controls */}
-        <div
-          inert={!drawModeActive ? true : undefined}
-          aria-hidden={!drawModeActive}
-          className={`col-start-1 row-start-1 flex items-center gap-0.5 justify-end w-full transition-all duration-150 ${
-            drawModeActive ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
-          }`}
-        >
-          <DrawingToolbar
-            drawColor={drawColor}
-            setDrawColor={setDrawColor}
-            drawWidth={drawWidth}
-            setDrawWidth={setDrawWidth}
-            drawTool={drawTool}
-            setDrawTool={setDrawTool}
-            fillColor={fillColor}
-            setFillColor={setFillColor}
-            onClearDraw={onClearDraw}
+          <ToolbarButton
+            id="toolbar-redo"
+            icon={<Redo size={iconSize} />}
+            title={drawModeActive ? "Redo drawing stroke (Ctrl+Y / Ctrl+Shift+Z)" : "Redo (Ctrl+Y)"}
+            onClick={() => {
+              if (drawModeActive) {
+                onRedoDraw();
+              } else {
+                editor.chain().focus().redo().run();
+              }
+            }}
+            disabled={!canRedo}
           />
+
+          <ToolbarDivider />
+
+          <div className="grid grid-cols-1 grid-rows-1 items-center grow">
+            {/* Normal Mode Controls */}
+            <div
+              inert={drawModeActive ? true : undefined}
+              aria-hidden={drawModeActive}
+              className={`col-start-1 row-start-1 flex items-center gap-0.5 justify-start w-full transition-all duration-150 ${
+                !drawModeActive ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+              }`}
+            >
+              <TextToolbar
+                editor={editor}
+                setLinkUrl={setLinkUrl}
+                setShowLinkModal={setShowLinkModal}
+              />
+            </div>
+
+            {/* Draw Mode Controls */}
+            <div
+              inert={!drawModeActive ? true : undefined}
+              aria-hidden={!drawModeActive}
+              className={`col-start-1 row-start-1 flex items-center gap-0.5 justify-end w-full transition-all duration-150 ${
+                drawModeActive ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+              }`}
+            >
+              <DrawingToolbar
+                drawColor={drawColor}
+                setDrawColor={setDrawColor}
+                drawWidth={drawWidth}
+                setDrawWidth={setDrawWidth}
+                drawTool={drawTool}
+                setDrawTool={setDrawTool}
+                fillColor={fillColor}
+                setFillColor={setFillColor}
+                onClearDraw={onClearDraw}
+              />
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Draw Mode Toggle — always visible */}
-      <ToolbarButton
-        id="toolbar-draw-mode"
-        icon={<PencilSparklesIcon size={iconSize} />}
-        title={drawModeActive ? "Exit Draw Mode" : "Enter Draw Mode (Digital Ink)"}
-        onClick={() => {
-          setDrawModeActive(!drawModeActive);
-        }}
-        active={drawModeActive}
+      {/* Subtle right-edge fade */}
+      <div
+        className="absolute top-0 bottom-0 right-[44px] w-8 bg-gradient-to-r from-transparent to-white dark:to-[#1c1c1c] pointer-events-none transition-opacity duration-200 z-10"
+        style={{ opacity: showRightFade ? 1 : 0 }}
       />
+
+      {/* Draw Mode Toggle — always visible */}
+      <div className="flex-shrink-0 z-10">
+        <ToolbarButton
+          id="toolbar-draw-mode"
+          icon={<PencilSparklesIcon size={iconSize} />}
+          title={drawModeActive ? "Exit Draw Mode" : "Enter Draw Mode (Digital Ink)"}
+          onClick={() => {
+            setDrawModeActive(!drawModeActive);
+          }}
+          active={drawModeActive}
+        />
+      </div>
 
       {/* Link Insertion Modal */}
       {showLinkModal && (

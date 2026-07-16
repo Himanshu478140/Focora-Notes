@@ -3,8 +3,7 @@
 import React from "react";
 import { type Editor } from "@tiptap/react";
 import { Code, Quote, Link, Image as ImageIcon, Sigma, Minus } from "lucide-react";
-import { nanoid } from "@/utils/nanoid";
-import { addImage } from "@/db/images";
+import { useImageInsertion } from "@/hooks/useImageInsertion";
 
 interface InsertDropdownProps {
   editor: Editor;
@@ -23,6 +22,7 @@ export function InsertDropdown({
   setLinkUrl,
   setShowLinkModal,
 }: InsertDropdownProps) {
+  const { insertImage } = useImageInsertion();
   const iconSize = 15;
   return (
     <>
@@ -72,20 +72,8 @@ export function InsertDropdown({
               input.accept = "image/*";
               input.onchange = async (e) => {
                 const file = (e.target as HTMLInputElement).files?.[0];
-                if (file && activePageId) {
-                  try {
-                    const imageId = "img-" + nanoid();
-                    await addImage({
-                      id: imageId,
-                      pageId: activePageId,
-                      blob: file,
-                      mimeType: file.type,
-                      createdAt: Date.now()
-                    });
-                    editor.chain().focus().setImage({ src: "focora-img://" + imageId }).run();
-                  } catch (err) {
-                    console.error("Failed to store and insert image:", err);
-                  }
+                if (file) {
+                  await insertImage(file, editor);
                 }
               };
               input.click();

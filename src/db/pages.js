@@ -6,7 +6,10 @@ export async function getAllPages() {
     const tx = db.transaction(STORES.PAGES, "readonly");
     const store = tx.objectStore(STORES.PAGES);
     const req = store.getAll();
-    req.onsuccess = () => resolve(req.result || []);
+    req.onsuccess = () => {
+      const cleanPages = (req.result || []).map(({ _hydrated, ...rest }) => rest);
+      resolve(cleanPages);
+    };
     req.onerror = () => reject(new Error("focora/pages: Failed to retrieve all pages"));
   });
 }
@@ -21,7 +24,8 @@ export async function getPageById(id) {
       if (!req.result) {
         reject(new Error("focora/pages: Page not found with id " + id));
       } else {
-        resolve(req.result);
+        const { _hydrated, ...cleanPage } = req.result;
+        resolve(cleanPage);
       }
     };
     req.onerror = () => reject(new Error("focora/pages: Failed to retrieve page by id " + id));
@@ -30,23 +34,33 @@ export async function getPageById(id) {
 
 export async function addPage(page) {
   const db = await dbPromise;
+  // Strip runtime-only flags before persisting
+  const { _hydrated, ...cleanPage } = page;
+  if (cleanPage.version === undefined) {
+    cleanPage.version = 1;
+  }
+  cleanPage.pendingSync = true;
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORES.PAGES, "readwrite");
     const store = tx.objectStore(STORES.PAGES);
-    const req = store.add(page);
-    req.onsuccess = () => resolve(page.id);
-    req.onerror = (e) => reject(new Error("focora/pages: Failed to add page with id " + page.id + ": " + e.target.error?.message));
+    const req = store.add(cleanPage);
+    req.onsuccess = () => resolve(cleanPage.id);
+    req.onerror = (e) => reject(new Error("focora/pages: Failed to add page with id " + cleanPage.id + ": " + e.target.error?.message));
   });
 }
 
 export async function updatePage(page) {
   const db = await dbPromise;
+  // Strip runtime-only flags before persisting
+  const { _hydrated, ...cleanPage } = page;
+  cleanPage.version = (cleanPage.version || 0) + 1;
+  cleanPage.pendingSync = true;
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORES.PAGES, "readwrite");
     const store = tx.objectStore(STORES.PAGES);
-    const req = store.put(page);
-    req.onsuccess = () => resolve(page.id);
-    req.onerror = (e) => reject(new Error("focora/pages: Failed to update page with id " + page.id + ": " + e.target.error?.message));
+    const req = store.put(cleanPage);
+    req.onsuccess = () => resolve(cleanPage.id);
+    req.onerror = (e) => reject(new Error("focora/pages: Failed to update page with id " + cleanPage.id + ": " + e.target.error?.message));
   });
 }
 
@@ -74,8 +88,9 @@ export async function movePage(id, newParentFolderId) {
         reject(new Error("focora/pages: Page not found with id " + id));
         return;
       }
-      page.parentFolderId = newParentFolderId;
-      const putReq = store.put(page);
+      const { _hydrated, ...cleanPage } = page;
+      cleanPage.parentFolderId = newParentFolderId;
+      const putReq = store.put(cleanPage);
       putReq.onsuccess = () => resolve(id);
       putReq.onerror = (e) => reject(new Error("focora/pages: Failed to move page with id " + id + ": " + e.target.error?.message));
     };
@@ -91,7 +106,32 @@ export async function getPagesByFolder(folderId) {
     const store = tx.objectStore(STORES.PAGES);
     const index = store.index("parentFolderId");
     const req = index.getAll(folderId);
-    req.onsuccess = () => resolve(req.result || []);
+    req.onsuccess = () => {
+      const cleanPages = (req.result || []).map(({ _hydrated, ...rest }) => rest);
+      resolve(cleanPages);
+    };
     req.onerror = () => reject(new Error("focora/pages: Failed to retrieve pages by folder id " + folderId));
+  });
+}
+
+export async function getAllPagesMetadata() {
+  const db = await dbPromise;
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORES.PAGES, "readonly");
+    const store = tx.objectStore(STORES.PAGES);
+    const req = store.openCursor();
+    const list = [];
+    req.onsuccess = (event) => {
+      const cursor = event.target.result;
+      if (cursor) {
+        // Strip heavy data AND runtime-only flags (backward compat for old records)
+        const { content, drawings, canvasData, _hydrated, ...metadata } = cursor.value;
+        list.push(metadata);
+        cursor.continue();
+      } else {
+        resolve(list);
+      }
+    };
+    req.onerror = () => reject(new Error("focora/pages: Failed to retrieve all pages metadata"));
   });
 }

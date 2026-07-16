@@ -1,0 +1,225 @@
+/* ==============================
+   Background Patterns (Rough Sheets)
+   ============================== */
+
+.bg-pattern-graph {
+  background-image:
+    linear-gradient(rgba(0, 0, 0, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
+  background-size: 30px 30px;
+  background-attachment: local;
+}
+
+.dark .bg-pattern-graph {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.12) 1px, transparent 1px);
+  background-size: 30px 30px;
+  background-attachment: local;
+}
+
+.bg-pattern-ruled {
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 31px,
+      rgba(0, 0, 0, 0.06) 31px,
+      rgba(0, 0, 0, 0.06) 32px
+    );
+  background-attachment: local;
+}
+
+.dark .bg-pattern-ruled {
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 31px,
+      rgba(255, 255, 255, 0.12) 31px,
+      rgba(255, 255, 255, 0.12) 32px
+    );
+  background-attachment: local;
+}
+
+.bg-pattern-dot {
+  background-image: radial-gradient(circle, rgba(0, 0, 0, 0.1) 1px, transparent 1px);
+  background-size: 24px 24px;
+  background-attachment: local;
+}
+
+.dark .bg-pattern-dot {
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.16) 1px, transparent 1px);
+  background-size: 24px 24px;
+  background-attachment: local;
+}
+
+/* --- Grid Lines (Graph) --- */
+.bg-pattern-graph-narrow {
+  background-image:
+    linear-gradient(rgba(163, 216, 244, 0.25) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(163, 216, 244, 0.25) 1px, transparent 1px);
+  background-size: 15px 15px;
+  background-attachment: local;
+}
+.dark .bg-pattern-graph-narrow {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+  background-size: 15px 15px;
+  background-attachment: local;
+}
+
+.bg-pattern-graph-dense {
+  background-image:
+    linear-gradient(rgba(163, 216, 244, 0.25) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(163, 216, 244, 0.25) 1px, transparent 1px);
+  background-size: 22px 22px;
+  background-attachment: local;
+}
+.dark .bg-pattern-graph-dense {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+  background-size: 22px 22px;
+  background-attachment: local;
+}
+
+.bg-pattern-graph-standard {
+  background-image:
+    linear-gradient(rgba(163, 216, 244, 0.3) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(163, 216, 244, 0.3) 1px, transparent 1px);
+  background-size: 30px 30px;
+  background-attachment: local;
+}
+.dark .bg-pattern-graph-standard {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.12) 1px, transparent 1px);
+  background-size: 30px 30px;
+  background-attachment: local;
+}
+
+.bg-pattern-graph-wide {
+  background-image:
+    linear-gradient(rgba(163, 216, 244, 0.35) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(163, 216, 244, 0.35) 1px, transparent 1px);
+  background-size: 45px 45px;
+  background-attachment: local;
+}
+.dark .bg-pattern-graph-wide {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.14) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.14) 1px, transparent 1px);
+  background-size: 45px 45px;
+  background-attachment: local;
+}
+
+/* --- Rule Lines --- */
+.bg-pattern-ruled-narrow {
+  background-image:
+    linear-gradient(90deg, transparent 79px, rgba(239, 68, 68, 0.25) 79px, rgba(239, 68, 68, 0.25) 80px, transparent 80px),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 15px,
+      rgba(59, 130, 246, 0.15) 15px,
+      rgba(59, 130, 246, 0.15) 16px
+    );
+  background-size: 100% 16px;
+  background-attachment: local;
+}
+.dark .bg-pattern-ruled-narrow {
+  background-image:
+    linear-gradient(90deg, transparent 79px, rgba(239, 68, 68, 0.35) 79px, rgba(239, 68, 68, 0.35) 80px, transparent 80px),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 15px,
+      rgba(255, 255, 255, 0.1) 15px,
+      rgba(255, 255, 255, 0.1) 16px
+    );
+  background-size: 100% 16px;
+  background-attachment: local;
+}
+
+.bg-pattern-ruled-college {
+  background-image:
+    linear-gradient(90deg, transparent 79px, rgba(239, 68, 68, 0.3) 79px, rgba(239, 68, 68, 0.3) 80px, transparent 80px),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 23px,
+      rgba(59, 130, 246, 0.18) 23px,
+      rgba(59, 130, 246, 0.18) 24px
+    );
+  background-size: 100% 24px;
+  background-attachment: local;
+}
+.dark .bg-pattern-ruled-college {
+  background-image:
+    linear-gradient(90deg, transparent 79px, rgba(239, 68, 68, 0.38) 79px, rgba(239, 68, 68, 0.38) 80px, transparent 80px),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 23px,
+      rgba(255, 255, 255, 0.12) 23px,
+      rgba(255, 255, 255, 0.12) 24px
+    );
+  background-size: 100% 24px;
+  background-attachment: local;
+}
+
+.bg-pattern-ruled-standard {
+  background-image:
+    linear-gradient(90deg, transparent 79px, rgba(239, 68, 68, 0.3) 79px, rgba(239, 68, 68, 0.3) 80px, transparent 80px),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 31px,
+      rgba(59, 130, 246, 0.2) 31px,
+      rgba(59, 130, 246, 0.2) 32px
+    );
+  background-size: 100% 32px;
+  background-attachment: local;
+}
+.dark .bg-pattern-ruled-standard {
+  background-image:
+    linear-gradient(90deg, transparent 79px, rgba(239, 68, 68, 0.38) 79px, rgba(239, 68, 68, 0.38) 80px, transparent 80px),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 31px,
+      rgba(255, 255, 255, 0.12) 31px,
+      rgba(255, 255, 255, 0.12) 32px
+    );
+  background-size: 100% 32px;
+  background-attachment: local;
+}
+
+.bg-pattern-ruled-wide {
+  background-image:
+    linear-gradient(90deg, transparent 79px, rgba(239, 68, 68, 0.35) 79px, rgba(239, 68, 68, 0.35) 80px, transparent 80px),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 47px,
+      rgba(59, 130, 246, 0.22) 47px,
+      rgba(59, 130, 246, 0.22) 48px
+    );
+  background-size: 100% 48px;
+  background-attachment: local;
+}
+.dark .bg-pattern-ruled-wide {
+  background-image:
+    linear-gradient(90deg, transparent 79px, rgba(239, 68, 68, 0.42) 79px, rgba(239, 68, 68, 0.42) 80px, transparent 80px),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 47px,
+      rgba(255, 255, 255, 0.14) 47px,
+      rgba(255, 255, 255, 0.14) 48px
+    );
+  background-size: 100% 48px;
+  background-attachment: local;
+}

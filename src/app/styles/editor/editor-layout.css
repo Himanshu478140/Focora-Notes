@@ -1,0 +1,58 @@
+/* ==============================
+   Editor Layout & ProseMirror
+   ============================== */
+
+.editor-content {
+  line-height: 1.75;
+  caret-color: #7c5cfc;
+  font-size: calc(16px * var(--font-scale, 1));
+  color: #111827;
+}
+
+.dark .editor-content {
+  color: #f3f4f6;
+}
+
+.ProseMirror {
+  outline: none !important;
+  min-height: 60vh;
+  position: relative;
+  cursor: text;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.ProseMirror:focus,
+.ProseMirror:focus-visible,
+#page-title-input:focus,
+#page-title-input:focus-visible,
+.rename-input:focus,
+.rename-input:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* TipTap Placeholder Extension */
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #9ca3af;
+  pointer-events: none;
+  height: 0;
+  font-style: italic;
+}
+
+.dark .ProseMirror p.is-editor-empty:first-child::before {
+  color: #4b5563;
+}
+
+*:focus-visible {
+  outline: 2px solid #7c5cfc;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+input:focus-visible,
+textarea:focus-visible {
+  outline: none;
+}

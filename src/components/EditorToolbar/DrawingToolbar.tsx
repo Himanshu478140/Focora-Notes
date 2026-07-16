@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import {
   Pencil,
   Highlighter,
@@ -23,8 +23,6 @@ import {
   ColorPicker,
   ColorArea,
   ColorSlider,
-  ColorSwatch,
-  ColorSwatchPicker,
   Label,
   parseColor,
 } from "@heroui/react";
@@ -54,7 +52,8 @@ interface DrawingToolbarProps {
     | "triangle"
     | "diamond"
     | "ellipse"
-    | "textbox";
+    | "textbox"
+    | "hand";
   setDrawTool: (tool: any) => void;
   fillColor: string;
   setFillColor: (color: string) => void;
@@ -98,11 +97,21 @@ function ToolbarDivider() {
 }
 
 function ColorCommitListener({ color, onCommit }: { color: string; onCommit: (color: string) => void }) {
+  const latestColorRef = useRef(color);
+  useEffect(() => {
+    latestColorRef.current = color;
+  }, [color]);
+
+  const onCommitRef = useRef(onCommit);
+  useEffect(() => {
+    onCommitRef.current = onCommit;
+  }, [onCommit]);
+
   useEffect(() => {
     return () => {
-      onCommit(color);
+      onCommitRef.current(latestColorRef.current);
     };
-  }, [color, onCommit]);
+  }, []);
 
   return null;
 }
@@ -150,7 +159,7 @@ export function DrawingToolbar({
     }
   }, []);
 
-  const addRecentColor = (color: string) => {
+  const addRecentColor = useCallback((color: string) => {
     if (!color || typeof color !== "string" || !color.startsWith("#")) return;
     setRecentColors((prev) => {
       const updated = [color, ...prev.filter((c) => c.toLowerCase() !== color.toLowerCase())];
@@ -158,7 +167,7 @@ export function DrawingToolbar({
       localStorage.setItem("focora-recent-colors", JSON.stringify(sliced));
       return sliced;
     });
-  };
+  }, []);
 
   const handleToggleDrawLinesDropdown = (e: React.MouseEvent<HTMLButtonElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -334,7 +343,7 @@ export function DrawingToolbar({
                 <ColorSlider.Thumb />
               </ColorSlider.Track>
             </ColorSlider>
-            <ColorSwatchPicker className="justify-center px-1" size="xs">
+            <div className="flex flex-wrap gap-1.5 justify-center px-1 py-1">
               {[
                 "#ef4444",
                 "#f97316",
@@ -346,11 +355,24 @@ export function DrawingToolbar({
                 "#ec4899",
                 "#f43f5e",
               ].map((preset) => (
-                <ColorSwatchPicker.Item key={preset} color={preset}>
-                  <ColorSwatchPicker.Swatch />
-                </ColorSwatchPicker.Item>
+                <button
+                  key={preset}
+                  onClick={() => {
+                    setDrawColor(preset);
+                    if (drawTool === "eraser" || drawTool === "lasso") {
+                      setDrawTool("pen");
+                    }
+                  }}
+                  className={`w-6 h-6 rounded-full border border-black/10 dark:border-white/10 transition-all hover:scale-110 cursor-pointer ${
+                    drawColor.toLowerCase() === preset.toLowerCase()
+                      ? "ring-2 ring-violet-500 dark:ring-violet-400 ring-offset-1"
+                      : ""
+                  }`}
+                  style={{ backgroundColor: preset }}
+                  title={`Select preset color ${preset}`}
+                />
               ))}
-            </ColorSwatchPicker>
+            </div>
           </ColorPicker.Popover>
         </ColorPicker>
 

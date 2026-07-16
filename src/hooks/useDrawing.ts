@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useApp } from "@/context/AppContext";
 import { type DrawingStroke, type CanvasTextBox, type CanvasObject } from "@/types/drawing";
 import { strokeBoundingBox, strokeSelected } from "@/utils/lasso";
@@ -23,10 +23,102 @@ import {
 import { getSelectionBounds } from "@/utils/drawing/selection";
 import { computeCursorStyle } from "@/utils/drawing/drawingCursor";
 import { useDrawingActions } from "./useDrawingActions";
+import { useCanvasZoom } from "./useCanvasZoom";
+import { clientToWorld } from "./useNativeCanvasViewport";
+import { paperLayoutAdapter } from "@/utils/canvasLayout";
 
-export function useDrawing() {
+const getInteractionBoundaryType = (target: EventTarget | null): "drawing" | "spatial" | null => {
+  if (!(target instanceof Element)) return null;
+  const boundary = target.closest('[data-interaction-boundary]');
+  if (boundary) {
+    return boundary.getAttribute('data-interaction-boundary') as "drawing" | "spatial";
+  }
+  // Fallback for legacy components during transition
+  if (target.closest('[data-drawing-interaction-boundary="true"]')) {
+    return "drawing";
+  }
+  return null;
+};
+
+const shouldBypassDrawing = (target: EventTarget | null, tool: string, modeActive: boolean): boolean => {
+  const type = getInteractionBoundaryType(target);
+  if (!type) return false;
+  if (type === "drawing") return true;
+
+  const isDrawingTool = modeActive && ["pen", "highlighter", "eraser", "strokeEraser", "line", "arrow", "elbowConnector", "curvedConnector", "rectangle", "circle", "triangle", "diamond", "ellipse"].includes(tool);
+  return !isDrawingTool;
+};
+
+export function useDrawing({
+  viewportRef,
+  drawings,
+  onUpdateDrawings,
+  clipRect,
+}: {
+  viewportRef: React.RefObject<HTMLElement | null>;
+  drawings: CanvasObject[];
+  onUpdateDrawings: (newDrawings: CanvasObject[]) => void;
+  clipRect?: { left: number; top: number; right: number; bottom: number } | null;
+}) {
   const { activePageId, pages, updatePage } = useApp();
   const page = pages.find((p) => p.id === activePageId);
+
+  const canvasPages = useMemo(() => {
+    return page?.canvasData?.metadata?.pages ?? [{ id: "page-1" }];
+  }, [page?.canvasData?.metadata?.pages]);
+
+  const pageGap = 24;
+
+  const paperLayout = useMemo(() => {
+    const activeView = page?.activeView || "document";
+    const canvasMeta = page?.canvasData?.metadata || {};
+    const layoutMode = activeView === "canvas" ? (canvasMeta.layoutMode || "infinite") : (page?.pageLayout || "infinite");
+    const paperSize = activeView === "canvas" ? (canvasMeta.paperSize || "A4") : (page?.pageLayout || "A4");
+    const orientation = activeView === "canvas" ? (canvasMeta.orientation || "portrait") : "portrait";
+
+    const isFixed = activeView === "document"
+      ? !!(page?.pageLayout && page.pageLayout !== "infinite")
+      : (layoutMode !== "infinite");
+
+    if (isFixed) {
+      return paperLayoutAdapter(paperSize as any, orientation as any);
+    }
+    return null;
+  }, [page]);
+
+  const pageHeight = paperLayout?.worldHeight ?? 1123;
+
+  const pageOffsets = useMemo(() => {
+    const offsets = new Map<string, number>();
+    let current = 0;
+    canvasPages.forEach((p) => {
+      offsets.set(p.id, current);
+      current += pageHeight + pageGap;
+    });
+    return offsets;
+  }, [canvasPages, pageHeight, pageGap]);
+
+  const zoomState = useCanvasZoom({ viewportRef });
+  const {
+    zoom,
+    setZoom,
+    panX,
+    panY,
+    isPanning,
+    screenToWorld,
+    worldToScreen,
+    handleWheel,
+    zoomIn,
+    zoomOut,
+    resetZoom,
+    startPanning,
+    updatePan,
+    stopPanning,
+    panBy,
+  } = zoomState;
+
+  const nestedPointerIdsRef = useRef<Set<number>>(new Set());
+  const previousToolRef = useRef<any>("pen");
 
   // Digital Draw Mode State
   const [drawModeActive, setDrawModeActive] = useState(false);
@@ -48,6 +140,7 @@ export function useDrawing() {
     | "diamond"
     | "ellipse"
     | "textbox"
+    | "hand"
   >("pen");
   const [fillColor, setFillColor] = useState<string>("none");
   const [undoStack, setUndoStack] = useState<CanvasObject[][]>([]);
@@ -88,6 +181,7 @@ export function useDrawing() {
   const pageEraserOverlayRef = useRef<HTMLDivElement | null>(null);
   const pagePenOverlayRef = useRef<HTMLDivElement | null>(null);
   const lastPointerTypeRef = useRef<string>("mouse");
+  const lastPointerEventRef = useRef<PointerEvent | undefined>(undefined);
   const lastExpandedHeightRef = useRef<number>(0);
   const isDraggingSelectionRef = useRef(false);
 
@@ -100,6 +194,7 @@ export function useDrawing() {
 
   const drawingsBeforeGestureRef = useRef<CanvasObject[]>([]);
   const activeDrawingsRef = useRef<CanvasObject[] | null>(null);
+  const gestureRectRef = useRef<DOMRect | null>(null);
   const hasEraseActionInCurrentGesture = useRef(false);
 
   const animationOffsetRef = useRef(0);
@@ -108,34 +203,57 @@ export function useDrawing() {
 
   // Selection Bounding Box Calculator
   const getSelectionBoundsLocal = useCallback(() => {
-    return getSelectionBounds(selectedStrokeIds, page?.drawings ?? []);
-  }, [selectedStrokeIds, page?.drawings]);
+    const worldDrawings = (drawings ?? []).map((stroke: any) => {
+      const pageOffsetY = pageOffsets.get(stroke.pageId || "") || 0;
+      return {
+        ...stroke,
+        y: stroke.y + pageOffsetY,
+      };
+    });
+    return getSelectionBounds(selectedStrokeIds, worldDrawings);
+  }, [selectedStrokeIds, drawings, pageOffsets]);
 
   // Redraw Canvas Handler
   const redrawPageCanvas = useCallback(() => {
     const canvas = pageCanvasRef.current;
-    if (!canvas) return;
+    const wrapper = pageCanvasWrapperRef.current;
+    if (!canvas || !wrapper) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    const targetWidth = Math.floor(wrapper.clientWidth * zoom * dpr);
+    const targetHeight = Math.floor(wrapper.clientHeight * zoom * dpr);
+
+    if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+    }
+
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Clear canvas
+    // Clear canvas relative to original dimensions
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    const drawings = activeDrawingsRef.current || (page?.drawings ?? []);
+    ctx.setTransform(dpr * zoom, 0, 0, dpr * zoom, 0, 0);
+
+    const drawingsList = activeDrawingsRef.current || (drawings ?? []);
 
     // 1. Draw glowing outlines for selected strokes (excluding textboxes)
-    drawings.forEach((stroke: any) => {
+    drawingsList.forEach((stroke: any) => {
       if (stroke.type !== "textbox" && selectedStrokeIds.has(stroke.id)) {
-        drawStrokePath(ctx, stroke as DrawingStroke, dragDx, dragDy, "rgba(124, 92, 252, 0.25)", 6);
+        const pageOffsetY = pageOffsets.get(stroke.pageId || "") || 0;
+        drawStrokePath(ctx, stroke as DrawingStroke, dragDx, dragDy + pageOffsetY, "rgba(124, 92, 252, 0.25)", 6);
       }
     });
 
     // 2. Draw all strokes normally (translating selected ones if dragging, excluding textboxes)
-    drawings.forEach((stroke: any) => {
+    drawingsList.forEach((stroke: any) => {
       if (stroke.type !== "textbox") {
         const isSel = selectedStrokeIds.has(stroke.id);
+        const pageOffsetY = pageOffsets.get(stroke.pageId || "") || 0;
         const dx = isSel ? dragDx : 0;
-        const dy = isSel ? dragDy : 0;
+        const dy = (isSel ? dragDy : 0) + pageOffsetY;
         drawStrokePath(ctx, stroke as DrawingStroke, dx, dy);
       }
     });
@@ -163,7 +281,7 @@ export function useDrawing() {
 
     // 4. Draw selection bounding box solid outline and 4 corner resize handles
     const selectionBounds = getSelectionBoundsLocal();
-    const selectedStrokes = drawings.filter((d) => selectedStrokeIds.has(d.id));
+    const selectedStrokes = drawingsList.filter((d: any) => selectedStrokeIds.has(d.id));
     const selectedStroke =
       selectedStrokes.length === 1 && selectedStrokes[0].type !== "textbox"
         ? (selectedStrokes[0] as DrawingStroke)
@@ -178,8 +296,9 @@ export function useDrawing() {
       let rotation = 0;
 
       if (isSingleGeometric && selectedStroke) {
+        const pageOffsetY = pageOffsets.get(selectedStroke.pageId || "") || 0;
         const startX = selectedStroke.x;
-        const startY = selectedStroke.y;
+        const startY = selectedStroke.y + pageOffsetY;
         const endX = startX + selectedStroke.points[0].dx;
         const endY = startY + selectedStroke.points[0].dy;
         if (selectedStroke.tool === "circle") {
@@ -283,7 +402,7 @@ export function useDrawing() {
       }
     }
   }, [
-    page?.drawings,
+    drawings,
     selectedStrokeIds,
     dragDx,
     dragDy,
@@ -295,12 +414,15 @@ export function useDrawing() {
     drawWidth,
     fillColor,
     transformType,
+    zoom,
+    panX,
+    panY,
   ]);
 
   // Actions sub-hook
   const actions = useDrawingActions({
-    page,
-    updatePage,
+    drawings,
+    onUpdateDrawings,
     selectedStrokeIds,
     setSelectedStrokeIds,
     setUndoStack,
@@ -320,7 +442,7 @@ export function useDrawing() {
   // Trigger Redraw when drawings change or selection shifts
   useEffect(() => {
     redrawPageCanvas();
-  }, [page?.drawings, selectedStrokeIds, dragDx, dragDy, lassoPath, redrawPageCanvas]);
+  }, [drawings, selectedStrokeIds, dragDx, dragDy, lassoPath, redrawPageCanvas]);
 
   // Lasso Dash Animation Loop (Marching Ants)
   useEffect(() => {
@@ -356,26 +478,18 @@ export function useDrawing() {
     const wrapper = pageCanvasWrapperRef.current;
     if (!canvas || !wrapper) return;
 
-    const resizeObserver = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const { width, height } = entry.contentRect;
-
-        const dpr = window.devicePixelRatio || 1;
-        canvas.width = width * dpr;
-        canvas.height = height * dpr;
-
-        const ctx = canvas.getContext("2d");
-        if (ctx) {
-          ctx.scale(dpr, dpr);
-        }
-
+    let resizeDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const resizeObserver = new ResizeObserver(() => {
+      if (resizeDebounceTimer) clearTimeout(resizeDebounceTimer);
+      resizeDebounceTimer = setTimeout(() => {
         redrawRef.current();
-      }
+      }, 100);
     });
     resizeObserver.observe(wrapper);
 
     return () => {
       resizeObserver.disconnect();
+      if (resizeDebounceTimer) clearTimeout(resizeDebounceTimer);
     };
   }, []);
 
@@ -388,7 +502,8 @@ export function useDrawing() {
     setDragDy(0);
     setIsDraggingSelection(false);
     lastExpandedHeightRef.current = 0;
-  }, [page?.id]);
+    resetZoom();
+  }, [page?.id, resetZoom]);
 
   // Sync drawColor / drawWidth with pen, highlighter, and textbox memories
   useEffect(() => {
@@ -474,9 +589,7 @@ export function useDrawing() {
   // Eraser drag check
   const handleEraserMove = useCallback(
     (ex: number, ey: number) => {
-      if (!page) return;
-      const currentDrawings = page.drawings ?? [];
-      const remaining = currentDrawings.filter((obj: any) => {
+      const remaining = drawings.filter((obj: any) => {
         if (obj.type === "textbox") return true;
         const erase = shouldEraseStroke(obj as DrawingStroke, ex, ey, 15);
         if (erase) {
@@ -485,35 +598,42 @@ export function useDrawing() {
         return !erase;
       });
 
-      if (remaining.length !== currentDrawings.length) {
-        updatePage(page.id, { drawings: remaining });
+      if (remaining.length !== drawings.length) {
+        onUpdateDrawings(remaining);
       }
     },
-    [page, updatePage]
+    [drawings, onUpdateDrawings]
   );
 
   // Dynamic Canvas Cursor Control
   const updateCursorStyle = useCallback(
     (e?: PointerEvent) => {
+      const evt = e || lastPointerEventRef.current;
       const style = computeCursorStyle(
-        e,
+        evt,
         drawModeActive,
         drawTool,
         drawColor,
         selectedStrokeIds,
-        page?.drawings ?? [],
+        drawings ?? [],
         pageCanvasRef.current,
-        lastPointerTypeRef.current
+        lastPointerTypeRef.current,
+        isPanning
       );
       setCursorStyleSafe(style);
     },
-    [drawModeActive, drawTool, drawColor, selectedStrokeIds, page?.drawings, setCursorStyleSafe]
+    [drawModeActive, drawTool, drawColor, selectedStrokeIds, drawings, setCursorStyleSafe, isPanning]
   );
 
   // Sync cursor style on tool or active state updates
+  const updateCursorStyleRef = useRef(updateCursorStyle);
   useEffect(() => {
-    updateCursorStyle();
-  }, [drawModeActive, drawTool, drawColor, updateCursorStyle]);
+    updateCursorStyleRef.current = updateCursorStyle;
+  }, [updateCursorStyle]);
+
+  useEffect(() => {
+    updateCursorStyleRef.current();
+  }, [drawModeActive, drawTool, drawColor, isPanning]);
 
   const handlePagePointerDown = (e: PointerEvent) => {
     if (e.pointerType !== "pen" && e.pointerType !== "mouse") return;
@@ -521,7 +641,7 @@ export function useDrawing() {
 
     const target = e.target as HTMLElement;
     const isInteractive = target.closest("button, input, select, textarea, a, [role='button']");
-    const isInDrawingBlock = target.closest(".drawing-block-wrapper");
+    const isInDrawingBlock = target.closest(".drawing-block-wrapper") || target.closest(".drawing-block-node-view-wrapper");
     const isTextBox = target.closest(".canvas-textbox");
     const isTextBoxInteractMode = drawTool === "textbox" || drawTool === "lasso";
 
@@ -543,10 +663,33 @@ export function useDrawing() {
     wrapper?.setPointerCapture(e.pointerId);
 
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    gestureRectRef.current = rect;
+    const screenX = e.clientX - rect.left;
+    const screenY = e.clientY - rect.top;
 
-    drawingsBeforeGestureRef.current = page?.drawings ?? [];
+    const isMiddleMouse = e.button === 1;
+    if (isMiddleMouse || drawTool === "hand") {
+      e.preventDefault();
+      e.stopPropagation();
+      startPanning(e.clientX, e.clientY);
+      pointerState.current = {
+        id: e.pointerId,
+        buffer: [],
+        committed: false,
+        maxPressure: 0,
+      };
+      return;
+    }
+
+    const worldPos = clientToWorld(e.clientX, e.clientY, canvas, zoom);
+    let x = worldPos.x;
+    let y = worldPos.y;
+    if (clipRect) {
+      x = Math.max(clipRect.left, Math.min(clipRect.right, x));
+      y = Math.max(clipRect.top, Math.min(clipRect.bottom, y));
+    }
+
+    drawingsBeforeGestureRef.current = drawings ?? [];
     hasEraseActionInCurrentGesture.current = false;
 
     const initialPressure = e.pressure;
@@ -575,7 +718,7 @@ export function useDrawing() {
           "triangle",
           "diamond",
           "ellipse",
-        ].includes(activeTool))
+          ].includes(activeTool))
     ) {
       const minX = lassoBounds.minX;
       const maxX = lassoBounds.maxX;
@@ -584,7 +727,7 @@ export function useDrawing() {
       const cx = (minX + maxX) / 2;
       const cy = (minY + maxY) / 2;
 
-      const selectedStrokes = (page?.drawings ?? []).filter((d) => selectedStrokeIds.has(d.id));
+      const selectedStrokes = (drawings ?? []).filter((d) => selectedStrokeIds.has(d.id));
       const selectedStroke =
         selectedStrokes.length === 1 && selectedStrokes[0].type !== "textbox"
           ? (selectedStrokes[0] as DrawingStroke)
@@ -686,13 +829,13 @@ export function useDrawing() {
           "ellipse",
         ].includes(activeTool))
     ) {
-      const selectedStrokes = (page?.drawings ?? []).filter((d) => selectedStrokeIds.has(d.id));
+      const selectedStrokes = (drawings ?? []).filter((d) => selectedStrokeIds.has(d.id));
       const selectedStroke =
         selectedStrokes.length === 1 && selectedStrokes[0].type !== "textbox"
           ? (selectedStrokes[0] as DrawingStroke)
           : null;
 
-      const otherStroke = (page?.drawings ?? [])
+      const otherStroke = (drawings ?? [])
         .slice()
         .reverse()
         .find((stroke) => {
@@ -780,7 +923,7 @@ export function useDrawing() {
           redrawPageCanvas();
         }
       } else if (activeTool === "strokeEraser") {
-        const currentDrawings = page?.drawings ?? [];
+        const currentDrawings = drawings ?? [];
         drawingsBeforeGestureRef.current = currentDrawings;
         setUndoStack((prev) => [...prev, currentDrawings]);
         setRedoStack([]);
@@ -793,7 +936,7 @@ export function useDrawing() {
           redrawPageCanvas();
         }
       } else if (activeTool === "eraser") {
-        const currentDrawings = page?.drawings ?? [];
+        const currentDrawings = drawings ?? [];
         drawingsBeforeGestureRef.current = currentDrawings;
         setUndoStack((prev) => [...prev, currentDrawings]);
         setRedoStack([]);
@@ -806,7 +949,7 @@ export function useDrawing() {
           redrawPageCanvas();
         }
       } else if (activeTool === "textbox") {
-        const existingTb = (page?.drawings ?? []).find(
+        const existingTb = (drawings ?? []).find(
           (obj: any): obj is CanvasTextBox =>
             obj.type === "textbox" &&
             x >= obj.x &&
@@ -818,7 +961,7 @@ export function useDrawing() {
           setSelectedStrokeIds(new Set([existingTb.id]));
           setEditingTextBoxId(existingTb.id);
         } else {
-          const currentDrawings = page?.drawings ?? [];
+          const currentDrawings = drawings ?? [];
           const newId = `tb-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
           const tb: CanvasTextBox = {
             id: newId,
@@ -835,9 +978,7 @@ export function useDrawing() {
           drawingsBeforeGestureRef.current = currentDrawings;
           setUndoStack((prev) => [...prev, currentDrawings]);
           setRedoStack([]);
-          if (page) {
-            updatePage(page.id, { drawings: [...currentDrawings, tb] });
-          }
+          onUpdateDrawings([...currentDrawings, tb]);
           setSelectedStrokeIds(new Set([newId]));
           setEditingTextBoxId(newId);
         }
@@ -855,19 +996,58 @@ export function useDrawing() {
 
     if (e.pointerId !== s.id) return;
 
+    if (isPanning || drawTool === "hand") {
+      if (isPanning) {
+        updatePan(e.clientX, e.clientY);
+      }
+      return;
+    }
+
+    const rect = gestureRectRef.current || canvas.getBoundingClientRect();
+    const worldPos = clientToWorld(e.clientX, e.clientY, rect, zoom);
+    let x = worldPos.x;
+    let y = worldPos.y;
+    if (clipRect) {
+      x = Math.max(clipRect.left, Math.min(clipRect.right, x));
+      y = Math.max(clipRect.top, Math.min(clipRect.bottom, y));
+    }
+
+
     if (transformType !== null) {
       e.preventDefault();
       e.stopPropagation();
 
-      const rect = canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-
       updateCursorStyle(e);
 
       if (transformType === "move" && transformStartPointer) {
-        setDragDx(x - transformStartPointer.x);
-        setDragDy(y - transformStartPointer.y);
+        let proposedDx = x - transformStartPointer.x;
+        let proposedDy = y - transformStartPointer.y;
+
+        if (clipRect) {
+          const selectedStrokes = drawingsBeforeGestureRef.current.filter((d) => selectedStrokeIds.has(d.id));
+          if (selectedStrokes.length > 0) {
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            selectedStrokes.forEach((d) => {
+              const box = strokeBoundingBox(d);
+              if (box.minX < minX) minX = box.minX;
+              if (box.maxX > maxX) maxX = box.maxX;
+              if (box.minY < minY) minY = box.minY;
+              if (box.maxY > maxY) maxY = box.maxY;
+            });
+
+            if (minX !== Infinity) {
+              const w = maxX - minX;
+              const h = maxY - minY;
+              const clampedMinX = Math.max(clipRect.left, Math.min(clipRect.right - w, minX + proposedDx));
+              const clampedMinY = Math.max(clipRect.top, Math.min(clipRect.bottom - h, minY + proposedDy));
+              proposedDx = clampedMinX - minX;
+              proposedDy = clampedMinY - minY;
+            }
+          }
+        }
+
+        setDragDx(proposedDx);
+        setDragDy(proposedDy);
       } else if (transformType === "resize" && transformStartPointer && resizeHandle) {
         const selectedDrawingsBefore = drawingsBeforeGestureRef.current.filter((d) =>
           selectedStrokeIds.has(d.id)
@@ -966,6 +1146,13 @@ export function useDrawing() {
           }
         }
 
+        if (clipRect) {
+          newMinX = Math.max(clipRect.left, Math.min(clipRect.right, newMinX));
+          newMaxX = Math.max(clipRect.left, Math.min(clipRect.right, newMaxX));
+          newMinY = Math.max(clipRect.top, Math.min(clipRect.bottom, newMinY));
+          newMaxY = Math.max(clipRect.top, Math.min(clipRect.bottom, newMaxY));
+        }
+
         const originalW = maxX - minX;
         const originalH = maxY - minY;
         const newW = newMaxX - newMinX;
@@ -974,7 +1161,7 @@ export function useDrawing() {
         const scaleX = originalW > 0 ? newW / originalW : 1;
         const scaleY = originalH > 0 ? newH / originalH : 1;
 
-        const updatedDrawings = (page?.drawings ?? []).map((d) => {
+        const updatedDrawings = (drawings ?? []).map((d) => {
           if (selectedStrokeIds.has(d.id)) {
             const originalD = selectedDrawingsBefore.find((orig) => orig.id === d.id);
             if (!originalD) return d;
@@ -1047,7 +1234,7 @@ export function useDrawing() {
           return d;
         });
 
-        updatePage(page.id, { drawings: updatedDrawings });
+        onUpdateDrawings(updatedDrawings);
       } else if (transformType === "rotate" && transformStartStroke && transformStartPointer) {
         const stroke = transformStartStroke;
         const startX = stroke.x;
@@ -1066,7 +1253,7 @@ export function useDrawing() {
         let newRotation = (stroke.rotation || 0) + (currentAngle - startAngle);
         newRotation = Math.atan2(Math.sin(newRotation), Math.cos(newRotation));
 
-        const updatedDrawings = (page?.drawings ?? []).map((d) => {
+        const updatedDrawings = (drawings ?? []).map((d) => {
           if (d.id === stroke.id) {
             return {
               ...d,
@@ -1076,7 +1263,7 @@ export function useDrawing() {
           }
           return d;
         });
-        updatePage(page.id, { drawings: updatedDrawings });
+        onUpdateDrawings(updatedDrawings);
       }
 
       return;
@@ -1097,9 +1284,6 @@ export function useDrawing() {
     e.stopPropagation();
 
     updateCursorStyle(e);
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
 
     if (
       drawModeActive &&
@@ -1236,10 +1420,30 @@ export function useDrawing() {
   const handlePagePointerUp = (e: PointerEvent) => {
     const s = pointerState.current;
 
+    if (isPanning) {
+      stopPanning();
+      const wrapper = pageCanvasWrapperRef.current;
+      if (wrapper) {
+        try {
+          wrapper.releasePointerCapture(e.pointerId);
+        } catch (err) {}
+        wrapper.style.touchAction = "";
+      }
+      pointerState.current = { id: null, buffer: [], committed: false, maxPressure: 0 };
+      gestureRectRef.current = null;
+      return;
+    }
+
+    const canvas = pageCanvasRef.current;
+    const rect = gestureRectRef.current || (canvas ? canvas.getBoundingClientRect() : null);
+    const { x, y } = rect
+      ? clientToWorld(e.clientX, e.clientY, rect, zoom)
+      : { x: 0, y: 0 };
+
     if (activeDrawingsRef.current) {
       const changed = JSON.stringify(activeDrawingsRef.current) !== JSON.stringify(drawingsBeforeGestureRef.current);
-      if (changed && page) {
-        updatePage(page.id, { drawings: activeDrawingsRef.current });
+      if (changed) {
+        onUpdateDrawings(activeDrawingsRef.current);
       }
       activeDrawingsRef.current = null;
     }
@@ -1261,8 +1465,8 @@ export function useDrawing() {
       }
 
       if (transformType === "move") {
-        if ((dragDx !== 0 || dragDy !== 0) && page) {
-          const currentDrawings = page.drawings ?? [];
+        if (dragDx !== 0 || dragDy !== 0) {
+          const currentDrawings = drawings ?? [];
           const updatedDrawings = currentDrawings.map((stroke: any) => {
             if (selectedStrokeIds.has(stroke.id)) {
               if (stroke.tool === "pen" || stroke.tool === "highlighter") {
@@ -1286,7 +1490,7 @@ export function useDrawing() {
             }
             return stroke;
           });
-          updatePage(page.id, { drawings: updatedDrawings });
+          onUpdateDrawings(updatedDrawings);
         }
         setDragDx(0);
         setDragDy(0);
@@ -1307,7 +1511,6 @@ export function useDrawing() {
 
     if (e.pointerType === "touch") return;
 
-    const canvas = pageCanvasRef.current;
     const activeTool = drawModeActive ? drawTool : "pen";
 
     const finalizeStroke = (pointsToSave: { x: number; y: number; pressure: number }[]) => {
@@ -1320,9 +1523,9 @@ export function useDrawing() {
 
       if (activeTool === "lasso") {
         const pathPoints = pointsToSave.map((p) => ({ x: p.x, y: p.y }));
-        if (pathPoints.length > 2 && page?.drawings) {
+        if (pathPoints.length > 2 && drawings) {
           const newSelected = new Set<string>();
-          page.drawings.forEach((stroke: any) => {
+          drawings.forEach((stroke: any) => {
             if (strokeSelected(stroke, pathPoints)) {
               newSelected.add(stroke.id);
             }
@@ -1406,13 +1609,9 @@ export function useDrawing() {
           setUndoStack((prev) => [...prev, drawingsBeforeGestureRef.current]);
           setRedoStack([]);
 
-          if (page) {
-            updatePage(page.id, {
-              drawings: [...(page.drawings ?? []), newStroke],
-            });
-            if (isShape) {
-              setSelectedStrokeIds(new Set([newStroke.id]));
-            }
+          onUpdateDrawings([...(drawings ?? []), newStroke]);
+          if (isShape) {
+            setSelectedStrokeIds(new Set([newStroke.id]));
           }
         }
       } else if (activeTool === "eraser") {
@@ -1432,16 +1631,14 @@ export function useDrawing() {
       setIsDraggingSelection(false);
       isDraggingSelectionRef.current = false;
 
-      const rect = canvas ? canvas.getBoundingClientRect() : null;
-      const x = rect ? e.clientX - rect.left : 0;
-      const y = rect ? e.clientY - rect.top : 0;
+
 
       const startPt = s.buffer[0];
       const finalDx = startPt ? x - startPt.x : 0;
       const finalDy = startPt ? y - startPt.y : 0;
 
-      if ((finalDx !== 0 || finalDy !== 0) && page) {
-        const currentDrawings = page.drawings ?? [];
+      if (finalDx !== 0 || finalDy !== 0) {
+        const currentDrawings = drawings ?? [];
         const updatedDrawings = currentDrawings.map((stroke: any) => {
           if (selectedStrokeIds.has(stroke.id)) {
             if (stroke.tool === "pen" || stroke.tool === "highlighter") {
@@ -1467,7 +1664,7 @@ export function useDrawing() {
         });
 
         saveHistory(currentDrawings);
-        updatePage(page.id, { drawings: updatedDrawings });
+        onUpdateDrawings(updatedDrawings);
       }
 
       setDragDx(0);
@@ -1485,11 +1682,11 @@ export function useDrawing() {
     }
 
     pointerState.current = { id: null, buffer: [], committed: false, maxPressure: 0 };
+    gestureRectRef.current = null;
   };
 
   const handleUndoDraw = useCallback(() => {
-    if (!page) return;
-    const currentDrawings = page.drawings ?? [];
+    const currentDrawings = drawings ?? [];
     if (undoStack.length === 0) return;
 
     const prevDrawings = undoStack[undoStack.length - 1];
@@ -1497,13 +1694,12 @@ export function useDrawing() {
 
     setUndoStack(newUndoStack);
     setRedoStack((prev) => [...prev, currentDrawings]);
-    updatePage(page.id, { drawings: prevDrawings });
+    onUpdateDrawings(prevDrawings);
     setSelectedStrokeIds(new Set());
-  }, [page, undoStack, updatePage]);
+  }, [drawings, undoStack, onUpdateDrawings]);
 
   const handleRedoDraw = useCallback(() => {
-    if (!page) return;
-    const currentDrawings = page.drawings ?? [];
+    const currentDrawings = drawings ?? [];
     if (redoStack.length === 0) return;
 
     const nextDrawings = redoStack[redoStack.length - 1];
@@ -1511,19 +1707,18 @@ export function useDrawing() {
 
     setRedoStack(newRedoStack);
     setUndoStack((prev) => [...prev, currentDrawings]);
-    updatePage(page.id, { drawings: nextDrawings });
+    onUpdateDrawings(nextDrawings);
     setSelectedStrokeIds(new Set());
-  }, [page, redoStack, updatePage]);
+  }, [drawings, redoStack, onUpdateDrawings]);
 
   const handleClearDraw = useCallback(() => {
-    if (!page) return;
-    const currentDrawings = page.drawings ?? [];
+    const currentDrawings = drawings ?? [];
     if (currentDrawings.length === 0) return;
 
     saveHistory(currentDrawings);
-    updatePage(page.id, { drawings: [] });
+    onUpdateDrawings([]);
     setSelectedStrokeIds(new Set());
-  }, [page, saveHistory, updatePage]);
+  }, [drawings, saveHistory, onUpdateDrawings]);
 
   const pageHandlersRef = useRef({
     handlePagePointerDown,
@@ -1552,35 +1747,51 @@ export function useDrawing() {
     if (!wrapper) return;
 
     const onPointerDown = (e: PointerEvent) => {
+      const handlers = pageHandlersRef.current;
+      if (shouldBypassDrawing(e.target, handlers.drawTool, handlers.drawModeActive)) {
+        nestedPointerIdsRef.current.add(e.pointerId);
+        return;
+      }
+      lastPointerEventRef.current = e;
       lastPointerTypeRef.current = e.pointerType;
-      if (e.pointerType === "pen") {
+      if (handlers.drawModeActive) {
         wrapper.style.touchAction = "none";
       } else {
         wrapper.style.touchAction = "";
       }
-      pageHandlersRef.current.updateCursorStyle(e);
-      pageHandlersRef.current.handlePagePointerDown(e);
+      handlers.updateCursorStyle(e);
+      handlers.handlePagePointerDown(e);
     };
     const onPointerMove = (e: PointerEvent) => {
+      const handlers = pageHandlersRef.current;
+      if (nestedPointerIdsRef.current.has(e.pointerId) || shouldBypassDrawing(e.target, handlers.drawTool, handlers.drawModeActive)) {
+        return;
+      }
+      lastPointerEventRef.current = e;
       lastPointerTypeRef.current = e.pointerType;
-      if (e.pointerType === "pen") {
+      if (handlers.drawModeActive) {
         wrapper.style.touchAction = "none";
-      } else if (e.pointerType === "touch" || e.pointerType === "mouse") {
+      } else {
         wrapper.style.touchAction = "";
       }
-      pageHandlersRef.current.updateCursorStyle(e);
-      pageHandlersRef.current.handlePagePointerMove(e);
+      handlers.updateCursorStyle(e);
+      handlers.handlePagePointerMove(e);
 
-      const handlers = pageHandlersRef.current;
-      const rect = wrapper.getBoundingClientRect();
-      const x = e.clientX - rect.left + wrapper.scrollLeft;
-      const y = e.clientY - rect.top + wrapper.scrollTop;
+      // Verification log for pen events (throttled to avoid spamming)
+      if (e.pointerType === "pen" && Math.random() < 0.05) {
+        const canvas = pageCanvasRef.current;
+        if (canvas) {
+          const canvasRect = canvas.getBoundingClientRect();
+          const { x: wX, y: wY } = clientToWorld(e.clientX, e.clientY, canvasRect, zoom);
+          console.log(`[DEBUG VERIFY PEN] clientX: ${e.clientX} | clientY: ${e.clientY} | canvasRect.left: ${canvasRect.left.toFixed(2)} | canvasRect.top: ${canvasRect.top.toFixed(2)} | zoom: ${zoom} | worldX: ${wX.toFixed(2)} | worldY: ${wY.toFixed(2)}`);
+        }
+      }
 
       if (pageEraserOverlayRef.current) {
         if (handlers.drawModeActive && handlers.drawTool === "eraser") {
           pageEraserOverlayRef.current.style.display = "block";
-          pageEraserOverlayRef.current.style.left = `${x}px`;
-          pageEraserOverlayRef.current.style.top = `${y}px`;
+          pageEraserOverlayRef.current.style.left = `${e.clientX}` + "px";
+          pageEraserOverlayRef.current.style.top = `${e.clientY}` + "px";
         } else {
           pageEraserOverlayRef.current.style.display = "none";
         }
@@ -1593,8 +1804,8 @@ export function useDrawing() {
           e.pointerType === "pen"
         ) {
           pagePenOverlayRef.current.style.display = "block";
-          pagePenOverlayRef.current.style.left = `${x - 2}px`;
-          pagePenOverlayRef.current.style.top = `${y - 22}px`;
+          pagePenOverlayRef.current.style.left = `${e.clientX - 2}px`;
+          pagePenOverlayRef.current.style.top = `${e.clientY - 22}px`;
           const fillPath = pagePenOverlayRef.current.querySelector("#page-pen-overlay-fill");
           if (fillPath) {
             fillPath.setAttribute("stroke", handlers.drawColor);
@@ -1606,14 +1817,26 @@ export function useDrawing() {
       }
     };
     const onPointerUp = (e: PointerEvent) => {
-      pageHandlersRef.current.handlePagePointerUp(e);
+      const handlers = pageHandlersRef.current;
+      if (nestedPointerIdsRef.current.has(e.pointerId)) {
+        nestedPointerIdsRef.current.delete(e.pointerId);
+        return;
+      }
+      if (shouldBypassDrawing(e.target, handlers.drawTool, handlers.drawModeActive)) {
+        return;
+      }
+      handlers.handlePagePointerUp(e);
     };
     const onPointerOver = (e: PointerEvent) => {
+      const handlers = pageHandlersRef.current;
+      if (shouldBypassDrawing(e.target, handlers.drawTool, handlers.drawModeActive)) {
+        return;
+      }
       lastPointerTypeRef.current = e.pointerType;
       if (e.pointerType === "pen") {
         wrapper.style.touchAction = "none";
       }
-      pageHandlersRef.current.updateCursorStyle(e);
+      handlers.updateCursorStyle(e);
     };
     const onPointerLeave = (e: PointerEvent) => {
       if (e.pointerType === "pen") {
@@ -1627,6 +1850,10 @@ export function useDrawing() {
       }
     };
     const onContextMenu = (e: MouseEvent) => {
+      const handlers = pageHandlersRef.current;
+      if (shouldBypassDrawing(e.target, handlers.drawTool, handlers.drawModeActive)) {
+        return;
+      }
       e.preventDefault();
       e.stopPropagation();
     };
@@ -1784,5 +2011,16 @@ export function useDrawing() {
     setTransformStartStroke,
     transformStartPointer,
     setTransformStartPointer,
+    zoom,
+    setZoom,
+    panX,
+    panY,
+    zoomIn,
+    zoomOut,
+    resetZoom,
+    screenToWorld,
+    worldToScreen,
+    handleWheel,
+    previousToolRef,
   };
 }

@@ -42,10 +42,11 @@ export async function movePageToTrash(id) {
         return;
       }
 
-      page.deletedAt = Date.now();
-      page.originalParentFolderId = page.parentFolderId;
+      const { _hydrated, ...cleanPage } = page;
+      cleanPage.deletedAt = Date.now();
+      cleanPage.originalParentFolderId = cleanPage.parentFolderId;
 
-      trashStore.put(page);
+      trashStore.put(cleanPage);
       pagesStore.delete(id);
     };
   });
@@ -100,20 +101,22 @@ export async function moveFolderToTrash(id) {
         const now = Date.now();
 
         descendantFolders.forEach(folder => {
+          const { _hydrated, ...cleanFolder } = folder;
           const trashFolder = {
-            ...folder,
+            ...cleanFolder,
             deletedAt: now,
-            originalParentFolderId: folder.parentId
+            originalParentFolderId: cleanFolder.parentId
           };
           trashFoldersStore.put(trashFolder);
           foldersStore.delete(folder.id);
         });
 
         descendantPages.forEach(page => {
+          const { _hydrated, ...cleanPage } = page;
           const trashPage = {
-            ...page,
+            ...cleanPage,
             deletedAt: now,
-            originalParentFolderId: page.parentFolderId
+            originalParentFolderId: cleanPage.parentFolderId
           };
           trashPagesStore.put(trashPage);
           pagesStore.delete(page.id);
@@ -143,11 +146,12 @@ export async function restorePageFromTrash(id) {
         return;
       }
 
-      page.parentFolderId = page.originalParentFolderId;
-      delete page.deletedAt;
-      delete page.originalParentFolderId;
+      const { _hydrated, ...cleanPage } = page;
+      cleanPage.parentFolderId = cleanPage.originalParentFolderId;
+      delete cleanPage.deletedAt;
+      delete cleanPage.originalParentFolderId;
 
-      pagesStore.put(page);
+      pagesStore.put(cleanPage);
       trashStore.delete(id);
     };
   });
@@ -202,8 +206,9 @@ export async function restoreFolderFromTrash(id) {
         );
 
         descendantFolders.forEach(folder => {
-          const restoredFolder = { ...folder };
-          restoredFolder.parentId = folder.originalParentFolderId;
+          const { _hydrated, ...cleanFolder } = folder;
+          const restoredFolder = { ...cleanFolder };
+          restoredFolder.parentId = cleanFolder.originalParentFolderId;
           delete restoredFolder.deletedAt;
           delete restoredFolder.originalParentFolderId;
 
@@ -212,8 +217,9 @@ export async function restoreFolderFromTrash(id) {
         });
 
         descendantPages.forEach(page => {
-          const restoredPage = { ...page };
-          restoredPage.parentFolderId = page.originalParentFolderId;
+          const { _hydrated, ...cleanPage } = page;
+          const restoredPage = { ...cleanPage };
+          restoredPage.parentFolderId = cleanPage.originalParentFolderId;
           delete restoredPage.deletedAt;
           delete restoredPage.originalParentFolderId;
 

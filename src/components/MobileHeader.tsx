@@ -20,7 +20,7 @@ export default function MobileHeader() {
       </button>
       <div className="flex items-center gap-2">
         <img
-          src="/focora-notes.png"
+          src="/focora-notes_newlogo.png"
           className="w-6 h-6 rounded-md object-contain bg-white/5 dark:bg-white/[0.02]"
           alt="Focora Notes"
         />

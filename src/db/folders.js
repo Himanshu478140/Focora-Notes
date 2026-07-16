@@ -30,23 +30,25 @@ export async function getFolderById(id) {
 
 export async function addFolder(folder) {
   const db = await dbPromise;
+  const { _hydrated, ...cleanFolder } = folder;
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORES.FOLDERS, "readwrite");
     const store = tx.objectStore(STORES.FOLDERS);
-    const req = store.add(folder);
-    req.onsuccess = () => resolve(folder.id);
-    req.onerror = (e) => reject(new Error("focora/folders: Failed to add folder with id " + folder.id + ": " + e.target.error?.message));
+    const req = store.add(cleanFolder);
+    req.onsuccess = () => resolve(cleanFolder.id);
+    req.onerror = (e) => reject(new Error("focora/folders: Failed to add folder with id " + cleanFolder.id + ": " + e.target.error?.message));
   });
 }
 
 export async function updateFolder(folder) {
   const db = await dbPromise;
+  const { _hydrated, ...cleanFolder } = folder;
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORES.FOLDERS, "readwrite");
     const store = tx.objectStore(STORES.FOLDERS);
-    const req = store.put(folder);
-    req.onsuccess = () => resolve(folder.id);
-    req.onerror = (e) => reject(new Error("focora/folders: Failed to update folder with id " + folder.id + ": " + e.target.error?.message));
+    const req = store.put(cleanFolder);
+    req.onsuccess = () => resolve(cleanFolder.id);
+    req.onerror = (e) => reject(new Error("focora/folders: Failed to update folder with id " + cleanFolder.id + ": " + e.target.error?.message));
   });
 }
 

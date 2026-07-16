@@ -63,7 +63,7 @@ interface EditorHeaderProps {
   triggerToast: (msg: string) => void;
 }
 
-export function EditorHeader({
+export const EditorHeader = React.memo(function EditorHeader({
   page,
   title,
   setTitle,
@@ -155,13 +155,37 @@ export function EditorHeader({
         </div>
 
         {/* Action icons */}
-        <div ref={menuRef} className="flex items-center gap-1 relative" id="page-more-menu-container">
+        <div ref={menuRef} className="flex items-center gap-1.5 relative" id="page-more-menu-container">
+          {/* View mode toggle */}
+          <div className="flex items-center bg-gray-100 dark:bg-white/[0.04] p-0.5 rounded-lg border border-gray-200/50 dark:border-white/[0.08] mr-1 select-none">
+            <button
+              onClick={() => updatePage(page.id, { activeView: "document" })}
+              className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-all duration-150 cursor-pointer ${
+                (page.activeView || "document") === "document"
+                  ? "bg-white dark:bg-neutral-800 text-violet-600 dark:text-violet-400 shadow-sm"
+                  : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+              }`}
+            >
+              Document
+            </button>
+            <button
+              onClick={() => updatePage(page.id, { activeView: "canvas" })}
+              className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-all duration-150 cursor-pointer ${
+                (page.activeView || "document") === "canvas"
+                  ? "bg-white dark:bg-neutral-800 text-violet-600 dark:text-violet-400 shadow-sm"
+                  : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+              }`}
+            >
+              Canvas
+            </button>
+          </div>
+
           <button
             id="page-star-btn"
             onClick={() => {
               updatePage(page.id, { starred: !page.starred });
             }}
-            className="p-1.5 rounded-lg hover:bg-gray-105 dark:hover:bg-white/[0.06] text-gray-400 dark:text-gray-550 transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg hover:bg-gray-105 dark:hover:bg-white/[0.06] text-gray-400 dark:text-gray-555 transition-colors cursor-pointer"
             title="Star this page"
           >
             {page.starred ? (
@@ -579,12 +603,31 @@ export function EditorHeader({
                       { label: "Letter", value: "letter" },
                       { label: "A5", value: "A5" },
                     ].map((sz) => {
-                      const isCurrent = (page.pageLayout || "infinite") === sz.value;
+                      const isCurrent = page.activeView === "canvas"
+                        ? (page.canvasData?.metadata?.layoutMode === "infinite" || !page.canvasData?.metadata?.layoutMode
+                          ? sz.value === "infinite"
+                          : page.canvasData?.metadata?.paperSize === sz.value)
+                        : (page.pageLayout || "infinite") === sz.value;
                       return (
                         <button
                           key={sz.value}
                           onClick={() => {
-                            updatePage(page.id, { pageLayout: sz.value as PageLayout });
+                            if (page.activeView === "canvas") {
+                              const meta = page.canvasData?.metadata || {};
+                              const newMeta = {
+                                ...meta,
+                                layoutMode: (sz.value === "infinite" ? "infinite" : "paper") as any,
+                                paperSize: (sz.value === "infinite" ? meta.paperSize || "A4" : sz.value) as any,
+                              };
+                              updatePage(page.id, {
+                                canvasData: {
+                                  ...(page.canvasData || { drawings: [], textboxes: [], images: [] }),
+                                  metadata: newMeta,
+                                }
+                              });
+                            } else {
+                              updatePage(page.id, { pageLayout: sz.value as PageLayout });
+                            }
                           }}
                           className="w-full flex items-center justify-between py-1 px-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/[0.04] text-[11px] font-medium text-gray-700 dark:text-gray-300 transition-colors cursor-pointer"
                         >
@@ -715,5 +758,5 @@ export function EditorHeader({
       )}
     </>
   );
-}
+});
 export default EditorHeader;

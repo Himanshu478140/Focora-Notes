@@ -1,0 +1,58 @@
+/* ==============================
+   Canvas TextBox Overlays
+   ============================== */
+
+.canvas-textbox {
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1.5px dashed transparent;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+  box-sizing: border-box;
+  user-select: none;
+}
+
+.canvas-textbox:hover {
+  border-color: rgba(59, 130, 246, 0.4);
+  background: rgba(59, 130, 246, 0.02);
+}
+
+.canvas-textbox--selected {
+  border: 1.5px solid #3b82f6 !important;
+  background: transparent;
+  box-shadow: none;
+}
+
+.canvas-textbox--editing {
+  border: 1.5px solid #3b82f6 !important;
+  background: transparent;
+  box-shadow: none;
+  user-select: text;
+}
+
+.canvas-textbox__textarea {
+  display: block;
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  overflow: hidden;
+  font-family: inherit;
+  padding: 0;
+  margin: 0;
+}
+
+/* Custom scrollbar inside textarea — keeps theme consistency */
+.canvas-textbox__textarea::-webkit-scrollbar { width: 4px; }
+.canvas-textbox__textarea::-webkit-scrollbar-track { background: transparent; }
+.canvas-textbox__textarea::-webkit-scrollbar-thumb { background: rgba(124, 92, 252, 0.3); border-radius: 2px; }
+
+.canvas-textbox__display {
+  pointer-events: none;
+  min-height: 1.5em;
+  padding: 0;
+}
+
+.canvas-textbox__resize-handle {
+  pointer-events: all !important;
+}

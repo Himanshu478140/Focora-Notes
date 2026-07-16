@@ -1,0 +1,9 @@
+/* ==============================
+   KaTeX Math Formula Styling
+   ============================== */
+.katex {
+  color: inherit !important;
+}
+.katex-display {
+  color: inherit !important;
+}

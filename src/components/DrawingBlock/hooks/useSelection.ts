@@ -19,7 +19,6 @@ export function useSelection({ localLines }: UseSelectionProps) {
   const [resizeHandle, setResizeHandle] = useState<string | null>(null);
   const [transformStartStroke, setTransformStartStroke] = useState<Shape | null>(null);
   const [transformStartPointer, setTransformStartPointer] = useState<{ x: number; y: number } | null>(null);
-  const [hoverCoords, setHoverCoords] = useState<{ x: number; y: number } | null>(null);
   
   const linesBeforeGestureRef = useRef<Shape[]>([]);
   const isDraggingLocalSelectionRef = useRef(false);
@@ -91,8 +90,6 @@ export function useSelection({ localLines }: UseSelectionProps) {
     setTransformStartStroke,
     transformStartPointer,
     setTransformStartPointer,
-    hoverCoords,
-    setHoverCoords,
     linesBeforeGestureRef,
     isDraggingLocalSelectionRef,
     getSelectionBounds,

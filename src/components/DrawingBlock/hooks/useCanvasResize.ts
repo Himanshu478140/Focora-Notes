@@ -4,6 +4,25 @@ import { useEffect, useRef, useCallback } from "react";
 import { type Shape, type Point } from "@/types/drawing";
 import { drawDrawingBlockCanvas } from "../rendering/DrawingBlockRenderer";
 
+// World dimensions for the embedded Drawing Block
+const WORLD_WIDTH = 1400;
+const WORLD_HEIGHT = 800;
+
+/**
+ * Quantize continuous viewport zoom into discrete render-scale steps.
+ * CSS zoom remains continuous; only backing-store reallocations use this.
+ *
+ *   zoom ≤ 1.0  → 1.0
+ *   zoom ≤ 1.5  → 1.5
+ *   zoom ≤ 2.0  → 2.0
+ *   zoom > 2.0  → 2.0  (capped)
+ */
+export function getQuantizedRenderScale(zoom: number): number {
+  if (zoom <= 1.0) return 1.0;
+  if (zoom <= 1.5) return 1.5;
+  return 2.0; // capped at 2× supersample
+}
+
 interface UseCanvasResizeProps {
   localLines: Shape[];
   selectedLocalStrokeIds: Set<string>;
@@ -11,54 +30,89 @@ interface UseCanvasResizeProps {
   localDragDy: number;
   localLassoPath: Point[];
   updateAttributes: (attrs: Record<string, any>) => void;
+  renderScale?: number;
+  wrapperRef?: React.RefObject<HTMLDivElement | null>;
+  canvasRef?: React.RefObject<HTMLCanvasElement | null>;
 }
 
-export function useCanvasResize({
-  localLines,
-  selectedLocalStrokeIds,
-  localDragDx,
-  localDragDy,
-  localLassoPath,
-  updateAttributes,
-}: UseCanvasResizeProps) {
-  const wrapperRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+export function useCanvasResize(props: UseCanvasResizeProps) {
+  const {
+    localLines,
+    selectedLocalStrokeIds,
+    localDragDx,
+    localDragDy,
+    localLassoPath,
+    updateAttributes,
+    renderScale = 1,
+  } = props;
 
-  // ResizeObserver for clean vector scaling and rendering crisp lines on DPI changes
+  const fallbackWrapperRef = useRef<HTMLDivElement>(null);
+  const fallbackCanvasRef = useRef<HTMLCanvasElement>(null);
+
+  const wrapperRef = props.wrapperRef || fallbackWrapperRef;
+  const canvasRef = props.canvasRef || fallbackCanvasRef;
+
+  // Resize canvas backing store when DPR or quantized renderScale changes
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const resizeObserver = new ResizeObserver((entries) => {
-      if (!entries || entries.length === 0) return;
-      const { width: containerWidth, height: containerHeight } = entries[0].contentRect;
+    const dpr = window.devicePixelRatio || 1;
+    const scale = dpr * renderScale;
 
-      const dpr = window.devicePixelRatio || 1;
-      canvas.width = containerWidth * dpr;
-      canvas.height = containerHeight * dpr;
+    const nextWidth = Math.round(WORLD_WIDTH * scale);
+    const nextHeight = Math.round(WORLD_HEIGHT * scale);
 
-      const ctx = canvas.getContext("2d");
-      if (ctx) {
-        ctx.scale(dpr, dpr);
-      }
+    if (canvas.width !== nextWidth || canvas.height !== nextHeight) {
+      canvas.width = nextWidth;
+      canvas.height = nextHeight;
 
-      drawDrawingBlockCanvas(
-        canvas,
-        localLines,
-        selectedLocalStrokeIds,
-        localDragDx,
-        localDragDy,
-        localLassoPath
-      );
-    });
-
-    if (canvas.parentElement) {
-      resizeObserver.observe(canvas.parentElement);
+      // Diagnostics — remove after verification
+      const memoryMB = ((nextWidth * nextHeight * 4) / (1024 * 1024)).toFixed(1);
+      console.log("[CanvasBackingStore]", {
+        renderScale,
+        dpr,
+        combinedScale: scale,
+        backingWidth: nextWidth,
+        backingHeight: nextHeight,
+        estimatedRGBA_MB: memoryMB,
+      });
     }
 
-    return () => {
-      resizeObserver.disconnect();
-    };
+    // Setting canvas.width/height resets the context — reapply transform
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    }
+
+    // Explicit CSS dimensions keep world size fixed; CSS zoom handles visual scaling
+    canvas.style.width = `${WORLD_WIDTH}px`;
+    canvas.style.height = `${WORLD_HEIGHT}px`;
+
+    // Immediately redraw all persisted vector objects at the new backing resolution
+    drawDrawingBlockCanvas(
+      canvas,
+      localLines,
+      selectedLocalStrokeIds,
+      localDragDx,
+      localDragDy,
+      localLassoPath,
+    );
+  }, [renderScale]);
+
+  // Redraw canvas content when drawing state changes (does NOT resize backing store)
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    drawDrawingBlockCanvas(
+      canvas,
+      localLines,
+      selectedLocalStrokeIds,
+      localDragDx,
+      localDragDy,
+      localLassoPath
+    );
   }, [localLines, selectedLocalStrokeIds, localDragDx, localDragDy, localLassoPath]);
 
   // Handle pointer down on custom drag resize grip

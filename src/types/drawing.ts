@@ -1,4 +1,4 @@
-import { type DrawingStroke, type CanvasTextBox, type CanvasObject, type BackgroundPattern, type PageLayout } from "@/data/mock";
+import { type DrawingStroke, type CanvasTextBox, type CanvasImageObject, type CanvasObject, type CanvasData, type BackgroundPattern, type PageLayout, type CanvasPageMeta } from "@/data/mock";
 
 export interface Point {
   x: number;
@@ -33,4 +33,6 @@ export interface Shape {
   drawArrowHead?: boolean;
 }
 
-export { type DrawingStroke, type CanvasTextBox, type CanvasObject, type BackgroundPattern, type PageLayout };
+export type SpatialCanvasObject = Shape;
+
+export { type DrawingStroke, type CanvasTextBox, type CanvasImageObject, type CanvasObject, type CanvasData, type BackgroundPattern, type PageLayout, type CanvasPageMeta };

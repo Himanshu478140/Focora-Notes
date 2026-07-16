@@ -4,6 +4,7 @@ import Script from "next/script";
 import "./globals.css";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { AppProvider } from "@/context/AppContext";
+import { SidebarProvider } from "@/context/SidebarContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -26,7 +27,7 @@ export const metadata: Metadata = {
   description:
     "A beautifully designed note-taking application inspired by the best productivity tools. Organize your thoughts across workspaces, notebooks, and sections with a premium writing experience.",
   icons: {
-    icon: "/focora-notes.png",
+    icon: "/focora-notes_newlogo.png",
   },
 };
 
@@ -59,7 +60,9 @@ export default function RootLayout({
       </head>
       <body className="h-full bg-background text-foreground" suppressHydrationWarning>
         <ThemeProvider>
-          <AppProvider>{children}</AppProvider>
+          <SidebarProvider>
+            <AppProvider>{children}</AppProvider>
+          </SidebarProvider>
         </ThemeProvider>
       </body>
     </html>

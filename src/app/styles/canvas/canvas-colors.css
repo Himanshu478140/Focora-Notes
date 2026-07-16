@@ -1,0 +1,18 @@
+/* Page background color classes */
+.page-bg-red    { background-color: #fce8e8 !important; }  /* Rose Paper */
+.page-bg-orange { background-color: #fff1e6 !important; }  /* Peach */
+.page-bg-yellow { background-color: #fff8dc !important; }  /* Cream */
+.page-bg-green  { background-color: #e8f5e9 !important; }  /* Mint */
+.page-bg-blue   { background-color: #eaf4ff !important; }  /* Sky */
+.page-bg-purple { background-color: #f3ecff !important; }  /* Lavender */
+.page-bg-pink   { background-color: #fdebf3 !important; }  /* Blossom */
+.page-bg-brown  { background-color: #f5eee6 !important; }  /* Parchment */
+
+.dark .page-bg-red    { background-color: #2b1c1c !important; }
+.dark .page-bg-orange { background-color: #2b2118 !important; }
+.dark .page-bg-yellow { background-color: #29261b !important; }
+.dark .page-bg-green  { background-color: #18261f !important; }
+.dark .page-bg-blue   { background-color: #18232c !important; }
+.dark .page-bg-purple { background-color: #211b2e !important; }
+.dark .page-bg-pink   { background-color: #2a1d25 !important; }
+.dark .page-bg-brown  { background-color: #26201c !important; }

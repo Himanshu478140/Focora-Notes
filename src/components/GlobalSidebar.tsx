@@ -14,9 +14,11 @@ import {
   ChevronsUpDown,
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
+import { useSidebar } from "@/context/SidebarContext";
 import FolderTree from "./FolderTree";
 
 export default function GlobalSidebar() {
+  const { sidebarCollapsed, setSidebarCollapsed } = useSidebar();
   const {
     folders,
     pages,
@@ -24,8 +26,6 @@ export default function GlobalSidebar() {
     viewMode,
     setViewMode,
     selectedFolderId,
-    sidebarCollapsed,
-    setSidebarCollapsed,
     addFolder,
     addPage,
     setActivePage,
@@ -250,7 +250,7 @@ export default function GlobalSidebar() {
     <aside
       ref={sidebarRef}
       id="global-sidebar"
-      className={`hidden md:flex flex-col h-screen max-h-screen backdrop-blur-xl flex-shrink-0 ease-in-out overflow-hidden py-4 pl-2.5 pr-0 gap-3.5 relative ${isDragging ? "" : "transition-all duration-300"
+      className={`hidden md:flex flex-col h-full max-h-full backdrop-blur-xl flex-shrink-0 ease-in-out overflow-hidden py-4 pl-2.5 pr-0 gap-3.5 relative ${isDragging ? "" : "transition-[width,background-color,border-color] duration-300"
         } ${sidebarCollapsed
           ? "w-[60px] bg-transparent hover:bg-gray-50/80 hover:dark:bg-surface/80"
           : "bg-gray-50/80 dark:bg-surface/80"
@@ -260,24 +260,27 @@ export default function GlobalSidebar() {
       {/* Header (Logo & Brand) */}
       <div
         onClick={sidebarCollapsed ? () => setSidebarCollapsed(false) : undefined}
-        className={`flex items-center justify-between w-full min-w-0 h-9 transition-all duration-300 overflow-hidden ${sidebarCollapsed ? "cursor-pointer pl-1" : "px-1 pr-2.5"
+        className={`flex items-center justify-between w-full min-w-0 h-10 transition-all duration-300 overflow-hidden ${sidebarCollapsed ? "cursor-pointer pl-0" : "px-1 pr-2.5"
           }`}
       >
         <div className="flex items-center min-w-0 flex-shrink-0">
           <img
-            src="/focora-notes.png"
-            className={`w-8 h-8 rounded-lg object-contain bg-white/5 dark:bg-white/[0.02] p-0.5 shadow-md shadow-violet-500/10 flex-shrink-0 transition-all duration-300 ${sidebarCollapsed ? "hover:scale-105 active:scale-95" : ""
+            src="/focora-notes_newlogo.png"
+            className={`w-10 h-10 rounded-lg object-contain bg-white/5 dark:bg-white/[0.02] p-0.5 shadow-md shadow-violet-500/10 flex-shrink-0 transition-all duration-300 ${sidebarCollapsed ? "hover:scale-105 active:scale-95" : ""
               }`}
             alt="Focora Notes"
             title={sidebarCollapsed ? "Expand sidebar" : undefined}
           />
-          <div className={`flex flex-col min-w-0 transition-all duration-300 ${sidebarCollapsed ? "w-0 opacity-0 overflow-hidden ml-0" : "w-auto opacity-100 ml-2.5"
+          <div className={`flex flex-col min-w-0 transition-all duration-300 ${sidebarCollapsed ? "w-0 opacity-0 overflow-hidden ml-0" : "w-auto opacity-100 ml-3"
             }`}>
             <span
-              className="text-[16px] font-medium text-gray-900 dark:text-white leading-tight truncate"
+              className="text-[17px] font-medium text-gray-900 dark:text-white leading-tight truncate"
               style={{ fontFamily: "var(--font-brand), sans-serif" }}
             >
               Focora Notes
+            </span>
+            <span className="text-[7.5px] font-semibold text-violet-500/70 dark:text-violet-400/70 tracking-[0.12em] uppercase leading-none mt-0.5 select-none">
+              by HIMANSHU
             </span>
           </div>
         </div>

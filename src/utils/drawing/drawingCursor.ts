@@ -29,10 +29,14 @@ export function computeCursorStyle(
   selectedStrokeIds: Set<string>,
   drawings: CanvasObject[],
   canvasElement: HTMLCanvasElement | null,
-  lastPointerType: string = "mouse"
+  lastPointerType: string = "mouse",
+  isPanning: boolean = false
 ): string {
   if (!drawModeActive) {
     return "default";
+  }
+  if (drawTool === "hand") {
+    return isPanning ? "grabbing" : "grab";
   }
   if (drawTool === "eraser") {
     return "none";

@@ -1,0 +1,77 @@
+/* ==============================
+   PDF Export & Printing Styles
+   ============================== */
+@media print {
+  /* Hide UI chrome, sidebars, headers, floating components, and button controls */
+  #global-sidebar,
+  #page-list,
+  #editor-toolbar,
+  #page-more-menu-container,
+  #rough-sheet-bg-toggle,
+  #rough-sheet-clear-btn,
+  #page-star-btn,
+  #page-share-btn,
+  #page-more-btn,
+  header,
+  .mobile-header,
+  #mobile-header,
+  .sections-tabs,
+  .floating-toolbar,
+  .sticky,
+  button, /* Hide buttons globally during print */
+  #editor-scroll-container::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  /* Unconstrain body, shell, containers to allow normal vertical layout and pagination */
+  body, html, #app-shell, #app-shell > div, #app-shell > div > div, #editor-canvas, #editor-scroll-container {
+    overflow: visible !important;
+    position: static !important;
+    height: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    background: white !important;
+    color: black !important;
+    box-shadow: none !important;
+  }
+
+  /* Force content max-width to expand to printable area */
+  .max-w-3xl {
+    max-width: none !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  canvas {
+    max-width: 100% !important;
+  }
+
+  .math-block-wrapper {
+    page-break-inside: avoid !important;
+  }
+
+  .canvas-textbox {
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+  }
+  .canvas-textbox__resize-handle,
+  .canvas-textbox__drag-handle {
+    display: none !important;
+  }
+
+  /* Print: Strip container transform scaling and inline padding for 1:1 unscaled PDF rendering */
+  #zoom-footprint {
+    width: auto !important;
+    min-height: auto !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    margin: 0 !important;
+  }
+  #page-canvas-wrapper {
+    transform: none !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+}

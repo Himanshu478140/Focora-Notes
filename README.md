@@ -1,6 +1,6 @@
 # Focora Notes
 
-Focora Notes is a premium, rich-featured digital ink canvas and document workspace application designed for modern note-taking. It combines rich-text document editing with freehand sketching and vector diagrams, offering a unified, high-performance canvas workspace.
+Focora Notes is a digital ink canvas and document workspace application designed for modern note-taking. It combines rich-text document editing with freehand sketching and vector diagrams, offering a unified, high-performance canvas workspace.
 
 ## Core Features
 

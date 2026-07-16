@@ -4,8 +4,8 @@ import { strokeBoundingBox } from "@/utils/lasso";
 import { clearOutlineCache } from "@/utils/drawing/rendering";
 
 interface UseDrawingActionsProps {
-  page: any;
-  updatePage: (pageId: string, attrs: any) => void;
+  drawings: CanvasObject[];
+  onUpdateDrawings: (newDrawings: CanvasObject[]) => void;
   selectedStrokeIds: Set<string>;
   setSelectedStrokeIds: React.Dispatch<React.SetStateAction<Set<string>>>;
   setUndoStack: React.Dispatch<React.SetStateAction<CanvasObject[][]>>;
@@ -21,8 +21,8 @@ interface UseDrawingActionsProps {
 }
 
 export function useDrawingActions({
-  page,
-  updatePage,
+  drawings,
+  onUpdateDrawings,
   selectedStrokeIds,
   setSelectedStrokeIds,
   setUndoStack,
@@ -43,24 +43,22 @@ export function useDrawingActions({
   }, [setUndoStack, setRedoStack]);
 
   const handleDeleteSelected = useCallback(() => {
-    if (selectedStrokeIds.size === 0 || !page) return;
-    const currentDrawings = page.drawings ?? [];
-    const remaining = currentDrawings.filter((s: any) => !selectedStrokeIds.has(s.id));
+    if (selectedStrokeIds.size === 0) return;
+    const remaining = drawings.filter((s: any) => !selectedStrokeIds.has(s.id));
 
-    saveHistory(currentDrawings);
-    updatePage(page.id, { drawings: remaining });
+    saveHistory(drawings);
+    onUpdateDrawings(remaining);
     setSelectedStrokeIds(new Set());
-  }, [selectedStrokeIds, page, updatePage, setSelectedStrokeIds, saveHistory]);
+  }, [selectedStrokeIds, drawings, onUpdateDrawings, setSelectedStrokeIds, saveHistory]);
 
   const handleDuplicateSelected = useCallback(() => {
-    if (selectedStrokeIds.size === 0 || !page) return;
-    const currentDrawings = page.drawings ?? [];
+    if (selectedStrokeIds.size === 0) return;
     const offset = 20;
 
     const duplicated: CanvasObject[] = [];
     const newSelectedIds = new Set<string>();
 
-    currentDrawings.forEach((obj: any) => {
+    drawings.forEach((obj: any) => {
       if (selectedStrokeIds.has(obj.id)) {
         const newId = `stroke-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         if (obj.type === "textbox") {
@@ -104,51 +102,48 @@ export function useDrawingActions({
     });
 
     if (duplicated.length > 0) {
-      saveHistory(currentDrawings);
-      updatePage(page.id, { drawings: [...currentDrawings, ...duplicated] });
+      saveHistory(drawings);
+      onUpdateDrawings([...drawings, ...duplicated]);
       setSelectedStrokeIds(newSelectedIds);
     }
-  }, [selectedStrokeIds, page, updatePage, setSelectedStrokeIds, saveHistory]);
+  }, [selectedStrokeIds, drawings, onUpdateDrawings, setSelectedStrokeIds, saveHistory]);
 
   const handleChangeColorSelected = useCallback(
     (color: string) => {
-      if (selectedStrokeIds.size === 0 || !page) return;
-      const currentDrawings = page.drawings ?? [];
+      if (selectedStrokeIds.size === 0) return;
 
-      const updated = currentDrawings.map((stroke: any) => {
+      const updated = drawings.map((stroke: any) => {
         if (selectedStrokeIds.has(stroke.id)) {
           return { ...stroke, color };
         }
         return stroke;
       });
 
-      saveHistory(currentDrawings);
-      updatePage(page.id, { drawings: updated });
+      saveHistory(drawings);
+      onUpdateDrawings(updated);
     },
-    [selectedStrokeIds, page, updatePage, saveHistory]
+    [selectedStrokeIds, drawings, onUpdateDrawings, saveHistory]
   );
 
   const handleCopySelected = useCallback(() => {
-    if (selectedStrokeIds.size === 0 || !page) return;
-    const currentDrawings = page.drawings ?? [];
-    copiedStrokesRef.current = currentDrawings
+    if (selectedStrokeIds.size === 0) return;
+    copiedStrokesRef.current = drawings
       .filter((s: any) => selectedStrokeIds.has(s.id))
       .map((obj: any) => {
         if (obj.type === "textbox") return { ...obj };
         const s = obj as DrawingStroke;
         return { ...s, points: s.points.map((p) => ({ ...p })) };
       });
-  }, [selectedStrokeIds, page, copiedStrokesRef]);
+  }, [selectedStrokeIds, drawings, copiedStrokesRef]);
 
   const handleCutSelected = useCallback(() => {
-    if (selectedStrokeIds.size === 0 || !page) return;
+    if (selectedStrokeIds.size === 0) return;
     handleCopySelected();
     handleDeleteSelected();
-  }, [handleCopySelected, handleDeleteSelected, page, selectedStrokeIds]);
+  }, [handleCopySelected, handleDeleteSelected, selectedStrokeIds]);
 
   const handlePasteStrokes = useCallback(() => {
-    if (copiedStrokesRef.current.length === 0 || !page) return;
-    const currentDrawings = page.drawings ?? [];
+    if (copiedStrokesRef.current.length === 0) return;
     const offset = 20;
 
     const pasted: CanvasObject[] = [];
@@ -196,8 +191,8 @@ export function useDrawingActions({
       }
     });
 
-    saveHistory(currentDrawings);
-    updatePage(page.id, { drawings: [...currentDrawings, ...pasted] });
+    saveHistory(drawings);
+    onUpdateDrawings([...drawings, ...pasted]);
     setSelectedStrokeIds(newSelectedIds);
 
     copiedStrokesRef.current = copiedStrokesRef.current.map((obj) => ({
@@ -211,11 +206,10 @@ export function useDrawingActions({
         maxY: obj.bounds.maxY + offset,
       } : undefined,
     }));
-  }, [page, updatePage, setSelectedStrokeIds, saveHistory, copiedStrokesRef]);
+  }, [drawings, onUpdateDrawings, setSelectedStrokeIds, saveHistory, copiedStrokesRef]);
 
   const handleClipboardTextPaste = useCallback((text: string) => {
-    if (!page || !drawModeActive || drawTool !== "textbox") return;
-    const currentDrawings = page.drawings ?? [];
+    if (!drawModeActive || drawTool !== "textbox") return;
 
     const wrapper = pageCanvasWrapperRef.current;
     const canvas = pageCanvasRef.current;
@@ -237,17 +231,16 @@ export function useDrawingActions({
       color: drawColor,
     };
 
-    saveHistory(currentDrawings);
-    updatePage(page.id, { drawings: [...currentDrawings, tb] });
+    saveHistory(drawings);
+    onUpdateDrawings([...drawings, tb]);
     setSelectedStrokeIds(new Set([newId]));
     setEditingTextBoxId(newId);
-  }, [page, drawModeActive, drawTool, drawWidth, drawColor, updatePage, setSelectedStrokeIds, setEditingTextBoxId, saveHistory, pageCanvasWrapperRef, pageCanvasRef]);
+  }, [drawModeActive, drawTool, drawWidth, drawColor, drawings, onUpdateDrawings, setSelectedStrokeIds, setEditingTextBoxId, saveHistory, pageCanvasWrapperRef, pageCanvasRef]);
 
   const handleSelectAllInk = useCallback(() => {
-    if (!page?.drawings) return;
-    const allIds = page.drawings.map((s: any) => s.id);
+    const allIds = drawings.map((s: any) => s.id);
     setSelectedStrokeIds(new Set(allIds));
-  }, [page?.drawings, setSelectedStrokeIds]);
+  }, [drawings, setSelectedStrokeIds]);
 
   return {
     saveHistory,
