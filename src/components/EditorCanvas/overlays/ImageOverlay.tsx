@@ -3,11 +3,11 @@
 import React, { useState, useRef } from "react";
 import { GripVertical, Trash2, ScanText, FileUp, Settings, Check } from "lucide-react";
 import { type CanvasImageObject, type CanvasTextBox } from "@/data/mock";
-import { useOfflineImage } from "@/hooks/useOfflineImage";
-import { useImageOcr } from "@/hooks/useImageOcr";
+import { useOfflineImage } from "@/components/Editor/extensions/Image/useOfflineImage";
+import { useImageOcr } from "@/components/Editor/extensions/Image/useImageOcr";
 import { addImage } from "@/db/images";
 import { nanoid } from "@/utils/nanoid";
-import { ImageInteractionController } from "@/components/ImageInteractionController";
+import { ImageInteractionController } from "@/components/Editor/extensions/Image/ImageInteractionController";
 
 interface CanvasImageOverlayProps {
   activeView?: "document" | "canvas";
@@ -232,11 +232,10 @@ function CanvasImageItem({
           <button
             onClick={handleOcrClick}
             disabled={ocrStatus === "loading"}
-            className={`p-1 rounded transition-colors flex items-center justify-center cursor-pointer ${
-              ocrStatus === "loading"
-                ? "text-violet-500 bg-violet-500/10"
-                : "text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/[0.04]"
-            }`}
+            className={`p-1 rounded transition-colors flex items-center justify-center cursor-pointer ${ocrStatus === "loading"
+              ? "text-violet-500 bg-violet-500/10"
+              : "text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/[0.04]"
+              }`}
             title={ocrMessage || "Extract Text (OCR)"}
           >
             <ScanText size={15} />
@@ -267,11 +266,10 @@ function CanvasImageItem({
               setAltTextValue(img.alt || "");
               setShowAltInput((prev) => !prev);
             }}
-            className={`p-1 rounded transition-colors flex items-center justify-center cursor-pointer ${
-              showAltInput
-                ? "text-blue-500 bg-blue-500/10"
-                : "text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/[0.04]"
-            }`}
+            className={`p-1 rounded transition-colors flex items-center justify-center cursor-pointer ${showAltInput
+              ? "text-blue-500 bg-blue-500/10"
+              : "text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/[0.04]"
+              }`}
             title="Edit Alt Text / Description"
           >
             <Settings size={15} />

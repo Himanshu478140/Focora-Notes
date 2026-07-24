@@ -4,15 +4,15 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useApp } from "@/context/AppContext";
 import "@/types/tiptap";
 import { type CanvasTextBox, type CanvasImageObject } from "@/data/mock";
-import EditorToolbar from "../EditorToolbar";
+import EditorToolbar from "../EditorToolbar/EditorToolbar";
 import { Plus, ChevronLeft } from "lucide-react";
 import { EditorContent } from "@tiptap/react";
-import { useDrawing } from "@/hooks/useDrawing";
+import { useDrawing } from "./useDrawing";
 
 import { EditorHeader } from "../EditorHeader";
 import { TableBubbleMenu } from "./bubbleMenus/TableBubbleMenu";
 import { TableOfContents } from "./TableOfContents";
-import { ZoomControls } from "../ZoomControls";
+import { ZoomControls } from "./zoom/ZoomControls";
 import { EditorCanvasContext } from "@/context/EditorCanvasContext";
 
 // Import modular parts
@@ -329,7 +329,7 @@ export default function EditorCanvas() {
       const scrollTop = container ? container.scrollTop : 0;
       const clientWidth = container ? container.clientWidth : 800;
       const clientHeight = container ? container.clientHeight : 600;
-      
+
       const cx = (scrollLeft + clientWidth / 2) / zoom;
       const topOffset = isFixedLayout ? 80 : 0;
       const cy = (scrollTop - topOffset + clientHeight / 2) / zoom;
@@ -347,11 +347,10 @@ export default function EditorCanvas() {
       >
         {/* Toolbar - Absolutely centered at top of canvas workspace */}
         <div
-          className={`absolute top-0 left-0 z-50 flex justify-center pointer-events-none py-3 px-4 transition-all duration-350 ${
-            activeView === "canvas" && layoutMode === "paper" && showNavigator
-              ? "right-48"
-              : "right-0"
-          }`}
+          className={`absolute top-0 left-0 z-50 flex justify-center pointer-events-none py-3 px-4 transition-all duration-350 ${activeView === "canvas" && layoutMode === "paper" && showNavigator
+            ? "right-48"
+            : "right-0"
+            }`}
         >
           <div className="pointer-events-auto max-w-full flex justify-center">
             <EditorToolbar
@@ -476,11 +475,11 @@ export default function EditorCanvas() {
                 isFixedLayout
                   ? `w-full flex-1 flex flex-col justify-start ${activeView === "canvas" ? "p-12" : ""}`
                   : `w-full mx-auto px-6 sm:px-8 lg:px-12 pt-20 pb-8 ${(() => {
-                      const width = page?.pageWidth || "comfortable";
-                      if (width === "compact") return "max-w-3xl";
-                      if (width === "comfortable") return "max-w-5xl";
-                      return "max-w-full";
-                    })()}`
+                    const width = page?.pageWidth || "comfortable";
+                    if (width === "compact") return "max-w-3xl";
+                    if (width === "comfortable") return "max-w-5xl";
+                    return "max-w-full";
+                  })()}`
               }
             >
               <EditorHeader
@@ -495,9 +494,8 @@ export default function EditorCanvas() {
               {activeView === "document" && (
                 <div
                   id="page-content-editor"
-                  className={`editor-content min-h-[60vh] outline-none text-gray-900 dark:text-gray-100 leading-relaxed text-base ${
-                    editorFont === "serif" ? "font-serif" : editorFont === "mono" ? "font-mono" : "font-sans"
-                  }`}
+                  className={`editor-content min-h-[60vh] outline-none text-gray-900 dark:text-gray-100 leading-relaxed text-base ${editorFont === "serif" ? "font-serif" : editorFont === "mono" ? "font-mono" : "font-sans"
+                    }`}
                   style={{
                     "--font-scale": editorFontScale,
                     paddingBottom:

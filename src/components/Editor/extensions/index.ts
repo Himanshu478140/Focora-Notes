@@ -12,7 +12,7 @@ import { Table } from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableHeader from "@tiptap/extension-table-header";
 import { DrawingBlock } from "@/components/DrawingBlock";
-import { MathBlock } from "@/components/MathBlock";
+import { MathBlock } from "@/components/Mathblock";
 
 // Local extensions
 import { CustomImage } from "./Image/CustomImage";

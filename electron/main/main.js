@@ -1,7 +1,7 @@
 const { app, BrowserWindow, Menu, protocol, session, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { initDriveIPC } = require('../ipc/driveIPC');
+const { initDriveIPC } = require('../../src/Drivebackup/ipc/driveIPC');
 
 // Display error dialog if an unhandled error occurs on Windows
 process.on('uncaughtException', (error) => {

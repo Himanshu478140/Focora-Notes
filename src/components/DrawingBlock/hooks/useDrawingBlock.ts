@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { type Shape } from "@/types/drawing";
 import { useCanvasResize, getQuantizedRenderScale } from "./useCanvasResize";
 import { useNativeCanvasViewport } from "@/hooks/useNativeCanvasViewport";
-import { useSpatialDrawing } from "@/hooks/useSpatialDrawing";
+import { useSpatialDrawing } from "./useSpatialDrawing";
 
 interface UseDrawingBlockProps {
   node: any;
@@ -62,7 +62,7 @@ export function useDrawingBlock({
         id: shape.id || Math.random().toString(36).substring(2, 11),
       }));
       setInitialLines(withIds);
-    } catch (e) {}
+    } catch (e) { }
   }, [lines]);
 
   const onCommit = useCallback((newLines: Shape[]) => {
@@ -105,10 +105,10 @@ export function useDrawingBlock({
     if (!viewport) return;
     const vpWidth = viewport.clientWidth;
     const vpHeight = viewport.clientHeight;
-    
+
     const scale = Math.min(vpWidth / 1400, vpHeight / 800);
     const targetZoom = Math.max(0.25, Math.min(3.0, scale));
-    
+
     setZoom(targetZoom);
     viewport.scrollLeft = Math.max(0, (1400 * targetZoom - vpWidth) / 2);
     viewport.scrollTop = Math.max(0, (800 * targetZoom - vpHeight) / 2);
@@ -140,7 +140,7 @@ export function useDrawingBlock({
     transformType: spatialDrawing.transformType,
     resizeHandle: spatialDrawing.resizeHandle,
     getSelectionBounds: spatialDrawing.getSelectionBounds,
-    
+
     color: spatialDrawing.color,
     tool: spatialDrawing.tool,
     setTool: spatialDrawing.setTool,

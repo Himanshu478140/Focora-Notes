@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { useApp } from "@/context/AppContext";
 import { addImage } from "@/db/images";
 import { nanoid } from "@/utils/nanoid";
-import { useImageOcr } from "@/hooks/useImageOcr";
+import { useImageOcr } from "./useImageOcr";
 import { stripImageAttrs } from "./utils";
 import { ANCHOR_BLOCK_TYPES } from "./constants";
 import { getUnscaledTopRelativeTo } from "./useImageAnchoring";
@@ -156,7 +156,7 @@ export function ImageToolbar({
 
       const targetPos = side === "left" ? pos + 3 : pos + imageCol.nodeSize + 3;
       const mappedTargetPos = tr.mapping.map(targetPos);
-      
+
       setTimeout(() => {
         if (editor.isDestroyed) return;
         editor.commands.setTextSelection(mappedTargetPos);
@@ -214,7 +214,7 @@ export function ImageToolbar({
         for (let i = 0; i < insertIdx; i++) {
           offset += resizedCols[i].nodeSize;
         }
-        
+
         const targetPos = columnRowStart + 3 + offset;
         const mappedTargetPos = tr.mapping.map(targetPos);
 

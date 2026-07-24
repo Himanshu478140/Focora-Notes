@@ -3,9 +3,9 @@
 import React, { useState, useEffect } from "react";
 import { NodeViewWrapper } from "@tiptap/react";
 import { useApp } from "@/context/AppContext";
-import { useOfflineImage } from "@/hooks/useOfflineImage";
-import { useImageOcr } from "@/hooks/useImageOcr";
-import { ImageInteractionController } from "@/components/ImageInteractionController";
+import { useOfflineImage } from "./useOfflineImage";
+import { useImageOcr } from "./useImageOcr";
+import { ImageInteractionController } from "@/components/Editor/extensions/Image/ImageInteractionController";
 import { useImageAnchoring, getUnscaledTopRelativeTo } from "./useImageAnchoring";
 import { ImageToolbar } from "./ImageToolbar";
 import { ImageSettingsDialog } from "./ImageSettingsDialog";
@@ -211,12 +211,12 @@ export function ImageNodeView(props: any) {
                 const img = e.currentTarget;
                 const naturalWidth = img.naturalWidth;
                 const editorWidth = editorDom?.clientWidth || 800;
-                
+
                 let initialWidth = naturalWidth;
                 if (naturalWidth > LARGE_IMAGE_THRESHOLD) {
                   initialWidth = Math.min(naturalWidth, Math.min(MAX_INITIAL_IMAGE_WIDTH, Math.round(INITIAL_WIDTH_RATIO * editorWidth)));
                 }
-                
+
                 updateAttributes({ width: `${initialWidth}px` });
               }
             }}

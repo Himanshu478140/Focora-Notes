@@ -8,6 +8,7 @@
   "files": [
     "package.json",
     "electron/**/*",
+    "src/Drivebackup/**/*",
     "out/**/*"
   ],
   "win": {

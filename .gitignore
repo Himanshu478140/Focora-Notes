@@ -46,3 +46,7 @@ next-env.d.ts
 # ide / local settings
 .vscode/
 scratch_parse.js
+
+
+# Local utilities
+cloc*.exe

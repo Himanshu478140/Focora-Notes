@@ -3,7 +3,7 @@
 import React from "react";
 import { type Editor } from "@tiptap/react";
 import { Code, Quote, Link, Image as ImageIcon, Sigma, Minus } from "lucide-react";
-import { useImageInsertion } from "@/hooks/useImageInsertion";
+import { useImageInsertion } from "@/components/Editor/extensions/Image/useImageInsertion";
 
 interface InsertDropdownProps {
   editor: Editor;

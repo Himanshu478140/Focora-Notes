@@ -319,7 +319,7 @@ export function usePointerEvents({
 
     const world = worldRef.current;
     if (!world) return;
-    
+
     gestureClientRectRef.current = world.getBoundingClientRect();
     const { x: xCoord, y: yCoord } = clientToWorld(e.clientX, e.clientY, gestureClientRectRef.current, zoom);
 

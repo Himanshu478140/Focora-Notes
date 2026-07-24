@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from "react";
 import GlobalSidebar from "@/components/GlobalSidebar";
-import PageList from "@/components/PageList";
+import PageList from "@/components/FolderTree/PageList";
 import EditorCanvas from "@/components/EditorCanvas";
 import Dashboard from "@/components/Dashboard";
-import MobileDrawer from "@/components/MobileDrawer";
-import MobileHeader from "@/components/MobileHeader";
+import MobileDrawer from "@/components/Mobile/MobileDrawer";
+import MobileHeader from "@/components/Mobile/MobileHeader";
 import SettingsModal from "@/components/SettingsModal";
 import { useApp } from "@/context/AppContext";
 
@@ -27,7 +27,7 @@ export default function Home() {
     <div id="app-shell" className="h-screen flex flex-col overflow-hidden bg-background text-foreground">
       {/* Custom Draggable Titlebar for Electron frameless window */}
       {isElectron && (
-        <div 
+        <div
           className="hidden md:block h-8 w-full flex-shrink-0 select-none bg-gray-50/50 dark:bg-[#121212] border-b border-gray-200/60 dark:border-white/[0.06]"
           style={{ WebkitAppRegion: 'drag' } as any}
         />
