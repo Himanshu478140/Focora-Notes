@@ -57,6 +57,7 @@ interface UsePointerInteractionsOptions {
   updatePage: (id: string, updates: any) => void;
   dragDx: number;
   dragDy: number;
+  viewportScrollRef?: React.MutableRefObject<import("../types").ViewportScrollState>;
 }
 
 export function usePointerInteractions({
@@ -102,6 +103,7 @@ export function usePointerInteractions({
   updatePage,
   dragDx,
   dragDy,
+  viewportScrollRef,
 }: UsePointerInteractionsOptions) {
   const pointerState = useRef<PointerState>({
     id: null,
@@ -116,6 +118,11 @@ export function usePointerInteractions({
   const hasEraseActionInCurrentGesture = useRef(false);
   const lastExpandedHeightRef = useRef<number>(0);
   const isDraggingSelectionRef = useRef(false);
+  const needsBakeRef = useRef<boolean>(false);
+
+  if (typeof window !== "undefined") {
+    (window as any).dumpDragLog = () => (window as any).__dragLog || [];
+  }
 
   // Eraser drag check
   const handleEraserMove = useCallback(
@@ -180,7 +187,7 @@ export function usePointerInteractions({
       return;
     }
 
-    const worldPos = clientToWorld(e.clientX, e.clientY, canvas, zoom);
+    const worldPos = clientToWorld(e.clientX, e.clientY, canvas, zoom, viewportScrollRef?.current);
     let x = worldPos.x;
     let y = worldPos.y;
     if (clipRect) {
@@ -399,6 +406,7 @@ export function usePointerInteractions({
       pointerState.current = {
         id: e.pointerId,
         buffer: [{ x, y, pressure: initialPressure }],
+        bakedPoints: [],
         committed: isCommitted,
         maxPressure: initialPressure,
       };
@@ -489,6 +497,7 @@ export function usePointerInteractions({
   };
 
   const handlePagePointerMove = (e: PointerEvent) => {
+    const moveStart = performance.now();
     const s = pointerState.current;
     const canvas = pageCanvasRef.current;
     if (!canvas || !page) return;
@@ -503,7 +512,7 @@ export function usePointerInteractions({
     }
 
     const rect = gestureRectRef.current || canvas.getBoundingClientRect();
-    const worldPos = clientToWorld(e.clientX, e.clientY, rect, zoom);
+    const worldPos = clientToWorld(e.clientX, e.clientY, rect, zoom, viewportScrollRef?.current);
     let x = worldPos.x;
     let y = worldPos.y;
     if (clipRect) {
@@ -761,6 +770,22 @@ export function usePointerInteractions({
         onUpdateDrawings(updatedDrawings);
       }
 
+      const transformEndMs = performance.now();
+      if (typeof window !== "undefined") {
+        if (!(window as any).__dragLog) {
+          (window as any).__dragLog = [];
+        }
+        (window as any).__dragLog.push({
+          ts: Number(moveStart.toFixed(2)),
+          totalMs: Number((transformEndMs - moveStart).toFixed(2)),
+          transformType,
+          selectedCount: selectedStrokeIds.size,
+          strokeCount: (drawings ?? []).length,
+          bypassesSnapshot: true,
+        });
+        (window as any).dumpDragLog = () => (window as any).__dragLog;
+      }
+
       return;
     }
 
@@ -812,6 +837,10 @@ export function usePointerInteractions({
     s.buffer.push(point);
     s.maxPressure = Math.max(s.maxPressure, e.pressure);
 
+    if (s.buffer.length >= 250 && (drawTool === "pen" || drawTool === "highlighter")) {
+      needsBakeRef.current = true;
+    }
+
     if (isDraggingSelectionRef.current) {
       const startPt = s.buffer[0];
       if (startPt) {
@@ -850,22 +879,46 @@ export function usePointerInteractions({
           redrawPageCanvas();
         } else if (activeTool === "strokeEraser") {
           if (activeDrawingsRef.current) {
+            const iterStart = performance.now();
+            const countBefore = activeDrawingsRef.current.length;
             for (const p of s.buffer) {
               activeDrawingsRef.current = activeDrawingsRef.current.filter((d) => {
                 if (d.type === "textbox") return true;
                 return !shouldEraseStroke(d as DrawingStroke, p.x, p.y, 15);
               });
             }
+            const iterDuration = performance.now() - iterStart;
+            if ((window as any).__strokeDebugLog) {
+              (window as any).__strokeDebugLog.push({
+                event: "iteration",
+                type: "strokeEraser",
+                ts: Number(iterStart.toFixed(2)),
+                duration: Number(iterDuration.toFixed(3)),
+                strokeCount: countBefore,
+              });
+            }
             redrawPageCanvas();
           }
         } else if (activeTool === "eraser") {
           if (activeDrawingsRef.current) {
+            const iterStart = performance.now();
+            const countBefore = activeDrawingsRef.current.length;
             for (let idx = 1; idx < s.buffer.length; idx++) {
               const pPrev = s.buffer[idx - 1];
               const pCurr = s.buffer[idx];
               activeDrawingsRef.current = activeDrawingsRef.current.flatMap((d): CanvasObject[] => {
                 if (d.type === "textbox") return [d];
                 return erasePointsFromStroke(d as DrawingStroke, pPrev.x, pPrev.y, pCurr.x, pCurr.y, 24);
+              });
+            }
+            const iterDuration = performance.now() - iterStart;
+            if ((window as any).__strokeDebugLog) {
+              (window as any).__strokeDebugLog.push({
+                event: "iteration",
+                type: "eraser",
+                ts: Number(iterStart.toFixed(2)),
+                duration: Number(iterDuration.toFixed(3)),
+                strokeCount: countBefore,
               });
             }
             redrawPageCanvas();
@@ -909,6 +962,20 @@ export function usePointerInteractions({
           redrawPageCanvas();
         }
       }
+    }
+
+    const moveEnd = performance.now();
+    if (typeof window !== "undefined") {
+      if (!(window as any).__moveBreakdownLog) {
+        (window as any).__moveBreakdownLog = [];
+      }
+      (window as any).__moveBreakdownLog.push({
+        ts: Number(moveStart.toFixed(2)),
+        totalMs: Number((moveEnd - moveStart).toFixed(2)),
+        bufferLen: s.buffer.length,
+        strokeCount: (drawings ?? []).length,
+      });
+      (window as any).dumpMoveBreakdown = () => (window as any).__moveBreakdownLog;
     }
   };
 
@@ -1166,20 +1233,23 @@ export function usePointerInteractions({
       setIsDrawing(false);
 
       if (s.committed) {
-        finalizeStroke(s.buffer);
+        const fullBuffer = [...(s.bakedPoints || []), ...s.buffer];
+        finalizeStroke(fullBuffer);
       } else if (s.maxPressure > TAP_PRESSURE_FLOOR && s.buffer.length > 0) {
-        finalizeStroke([s.buffer[0]]);
+        const fullBuffer = [...(s.bakedPoints || []), s.buffer[0]];
+        finalizeStroke([fullBuffer[0]]);
       } else {
         setLassoPath([]);
       }
     }
 
-    pointerState.current = { id: null, buffer: [], committed: false, maxPressure: 0 };
+    pointerState.current = { id: null, buffer: [], bakedPoints: [], committed: false, maxPressure: 0 };
     gestureRectRef.current = null;
   };
 
   return {
     pointerState,
+    needsBakeRef,
     activeDrawingsRef,
     handleEraserMove,
     handlePagePointerDown,

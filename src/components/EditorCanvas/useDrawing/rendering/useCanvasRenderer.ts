@@ -1,5 +1,6 @@
 import { useCallback, useRef, useEffect } from "react";
 import { CanvasObject, DrawingStroke } from "@/types/drawing";
+import { PointerState } from "../types";
 import {
   drawActiveStroke,
   drawShapePreview as drawActiveShapePreview,
@@ -27,6 +28,9 @@ interface UseCanvasRendererOptions {
   panY: number;
   pageOffsets: Map<string, number>;
   pointerStateBuffer: { x: number; y: number; pressure: number }[];
+  pointerStateRef?: React.MutableRefObject<PointerState>;
+  needsBakeRef?: React.MutableRefObject<boolean>;
+  viewportScrollRef?: React.MutableRefObject<import("../types").ViewportScrollState>;
 }
 
 export function useCanvasRenderer({
@@ -50,6 +54,9 @@ export function useCanvasRenderer({
   panY,
   pageOffsets,
   pointerStateBuffer,
+  pointerStateRef,
+  needsBakeRef,
+  viewportScrollRef,
 }: UseCanvasRendererOptions) {
   const animationOffsetRef = useRef(0);
   const animationFrameIdRef = useRef<number | null>(null);
@@ -61,12 +68,18 @@ export function useCanvasRenderer({
     if (!canvas || !wrapper) return;
 
     const dpr = window.devicePixelRatio || 1;
+    const viewportHeight = viewportScrollRef?.current?.viewportHeight || (typeof window !== "undefined" ? window.innerHeight : 1000);
+    const CAPPED_BUFFER = 400;
+    const cappedCssHeight = Math.min(wrapper.clientHeight, Math.max(800, viewportHeight + CAPPED_BUFFER));
+
     const targetWidth = Math.floor(wrapper.clientWidth * zoom * dpr);
-    const targetHeight = Math.floor(wrapper.clientHeight * zoom * dpr);
+    const targetHeight = Math.floor(cappedCssHeight * zoom * dpr);
 
     if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
       canvas.width = targetWidth;
       canvas.height = targetHeight;
+      canvas.style.height = `${cappedCssHeight}px`;
+      canvas.style.width = `${wrapper.clientWidth}px`;
     }
 
     const ctx = canvas.getContext("2d");

@@ -8,9 +8,17 @@ export interface UseDrawingOptions {
   clipRect?: { left: number; top: number; right: number; bottom: number } | null;
 }
 
+export interface ViewportScrollState {
+  scrollLeft: number;
+  scrollTop: number;
+  viewportWidth: number;
+  viewportHeight: number;
+}
+
 export interface PointerState {
   id: number | null;
   buffer: { x: number; y: number; pressure: number }[];
+  bakedPoints?: { x: number; y: number; pressure: number }[];
   committed: boolean;
   maxPressure: number;
 }

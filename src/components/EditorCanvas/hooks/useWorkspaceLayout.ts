@@ -10,6 +10,8 @@ interface UseWorkspaceLayoutProps {
   updatePage: (id: string, updates: Partial<Page>) => void;
 }
 
+const DEFAULT_CANVAS_PAGES = [{ id: "page-1" }];
+
 export function useWorkspaceLayout({ page, updatePage }: UseWorkspaceLayoutProps) {
   const [containerWidth, setContainerWidth] = useState<number>(800);
   const [containerHeight, setContainerHeight] = useState<number>(800);
@@ -114,7 +116,7 @@ export function useWorkspaceLayout({ page, updatePage }: UseWorkspaceLayoutProps
     : (layoutMode !== "infinite");
 
   const canvasPages = React.useMemo(() => {
-    return page?.canvasData?.metadata?.pages ?? [{ id: "page-1" }];
+    return page?.canvasData?.metadata?.pages ?? DEFAULT_CANVAS_PAGES;
   }, [page?.canvasData?.metadata?.pages]);
 
   const pageGap = 24;

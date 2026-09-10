@@ -1,12 +1,12 @@
 "use client";
 
-import { useRef, useMemo } from "react";
+import { useRef, useMemo, useEffect } from "react";
 import { useApp } from "@/context/AppContext";
 import { paperLayoutAdapter } from "@/utils/canvasLayout";
 import { useDrawingActions } from "./useDrawingActions";
 import { useCanvasZoom } from "../zoom/useCanvasZoom";
 
-import { UseDrawingOptions } from "./types";
+import { UseDrawingOptions, ViewportScrollState } from "./types";
 import { useDrawingToolState } from "./state/useDrawingToolState";
 import { useDrawingHistory } from "./history/useDrawingHistory";
 import { useSelectionTransform } from "./selection/useSelectionTransform";
@@ -15,6 +15,8 @@ import { useCanvasRenderer } from "./rendering/useCanvasRenderer";
 import { usePointerInteractions } from "./interactions/usePointerInteractions";
 import { useCanvasEvents } from "./events/useCanvasEvents";
 import { useDrawingShortcuts } from "./shortcuts/useDrawingShortcuts";
+
+const DEFAULT_CANVAS_PAGES = [{ id: "page-1" }];
 
 export function useDrawing({
   viewportRef,
@@ -25,8 +27,35 @@ export function useDrawing({
   const { activePageId, pages, updatePage } = useApp();
   const page = pages.find((p) => p.id === activePageId);
 
+  const viewportScrollRef = useRef<ViewportScrollState>({
+    scrollLeft: 0,
+    scrollTop: 0,
+    viewportWidth: 800,
+    viewportHeight: 600,
+  });
+
+  useEffect(() => {
+    const container = viewportRef.current;
+    if (!container) return;
+
+    const updateScroll = () => {
+      viewportScrollRef.current = {
+        scrollLeft: container.scrollLeft,
+        scrollTop: container.scrollTop,
+        viewportWidth: container.clientWidth,
+        viewportHeight: container.clientHeight,
+      };
+    };
+
+    updateScroll();
+    container.addEventListener("scroll", updateScroll, { passive: true });
+    return () => {
+      container.removeEventListener("scroll", updateScroll);
+    };
+  }, [viewportRef]);
+
   const canvasPages = useMemo(() => {
-    return page?.canvasData?.metadata?.pages ?? [{ id: "page-1" }];
+    return page?.canvasData?.metadata?.pages ?? DEFAULT_CANVAS_PAGES;
   }, [page?.canvasData?.metadata?.pages]);
 
   const pageGap = 24;
@@ -59,6 +88,22 @@ export function useDrawing({
     });
     return offsets;
   }, [canvasPages, pageHeight, pageGap]);
+
+  const prevPageOffsetsRef = useRef<any>(pageOffsets);
+  const isOffsetsSame = prevPageOffsetsRef.current === pageOffsets;
+  prevPageOffsetsRef.current = pageOffsets;
+
+  if (typeof window !== "undefined") {
+    if (!(window as any).__pageOffsetsLog) {
+      (window as any).__pageOffsetsLog = [];
+    }
+    (window as any).__pageOffsetsLog.push({
+      ts: Number(performance.now().toFixed(2)),
+      sameRef: isOffsetsSame,
+      strokeCount: drawings?.length || 0,
+    });
+    (window as any).dumpOffsetsLog = () => (window as any).__pageOffsetsLog;
+  }
 
   const zoomState = useCanvasZoom({ viewportRef });
   const {
@@ -181,6 +226,7 @@ export function useDrawing({
     updatePage,
     dragDx: selection.dragDx,
     dragDy: selection.dragDy,
+    viewportScrollRef,
   });
 
   // 7. Renderer
@@ -205,6 +251,9 @@ export function useDrawing({
     panY,
     pageOffsets,
     pointerStateBuffer: pointer.pointerState.current.buffer,
+    pointerStateRef: pointer.pointerState,
+    needsBakeRef: pointer.needsBakeRef,
+    viewportScrollRef,
   });
 
   // 8. Event Registration

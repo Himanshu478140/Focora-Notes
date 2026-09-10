@@ -211,12 +211,21 @@ export function clientToWorld(
   clientX: number,
   clientY: number,
   worldElement: HTMLElement | DOMRect,
-  zoom: number
+  zoom: number,
+  viewportScroll?: { scrollLeft: number; scrollTop: number }
 ) {
   const rect =
     worldElement instanceof DOMRect
       ? worldElement
       : (worldElement as HTMLElement).getBoundingClientRect();
+
+  if (viewportScroll && worldElement instanceof HTMLElement && worldElement.id === "editor-scroll-container") {
+    return {
+      x: (clientX - rect.left + viewportScroll.scrollLeft) / zoom,
+      y: (clientY - rect.top + viewportScroll.scrollTop) / zoom,
+    };
+  }
+
   return {
     x: (clientX - rect.left) / zoom,
     y: (clientY - rect.top) / zoom,

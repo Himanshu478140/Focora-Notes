@@ -1,5 +1,6 @@
 import { type Shape, type DrawingStroke } from "@/types/drawing";
 import { distToSegment } from "./geometry";
+import { strokeBoundingBox } from "../lasso";
 
 export function shouldEraseLocalShape(shape: Shape, ex: number, ey: number, radius: number = 10): boolean {
   const checkDist = radius + (shape.width || 3) / 2;
@@ -118,6 +119,20 @@ export function shouldEraseLocalShape(shape: Shape, ex: number, ey: number, radi
 }
 
 export function shouldEraseStroke(stroke: DrawingStroke, ex: number, ey: number, radius: number = 15): boolean {
+  if (!stroke || !stroke.points || stroke.points.length === 0) return false;
+
+  // Bounding box early exit: Check if eraser (ex, ey) is near the stroke's bounding box first
+  const box = strokeBoundingBox(stroke);
+  const margin = radius + (stroke.width || 3) / 2 + 5;
+  if (
+    ex < box.minX - margin ||
+    ex > box.maxX + margin ||
+    ey < box.minY - margin ||
+    ey > box.maxY + margin
+  ) {
+    return false;
+  }
+
   const startX = stroke.x;
   const startY = stroke.y;
   const tool = stroke.tool || "pen";

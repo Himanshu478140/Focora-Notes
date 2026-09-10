@@ -61,7 +61,7 @@ export default function CanvasOverlays({
       {/* Transparent canvas overlay */}
       <canvas
         ref={pageCanvasRef}
-        className="absolute inset-0 w-full h-full z-30 pointer-events-none transition-opacity duration-200 opacity-100"
+        className="absolute top-0 left-0 w-full z-30 pointer-events-none transition-opacity duration-200 opacity-100"
         style={{
           touchAction: "pan-x pan-y"
         }}
