@@ -27,6 +27,12 @@ export function useDrawing({
   const { activePageId, pages, updatePage } = useApp();
   const page = pages.find((p) => p.id === activePageId);
 
+  const pageCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const pageCanvasWrapperRef = useRef<HTMLDivElement | null>(null);
+  const pageEraserOverlayRef = useRef<HTMLDivElement | null>(null);
+  const pagePenOverlayRef = useRef<HTMLDivElement | null>(null);
+  const copiedStrokesRef = useRef<any[]>([]);
+
   const viewportScrollRef = useRef<ViewportScrollState>({
     scrollLeft: 0,
     scrollTop: 0,
@@ -58,11 +64,16 @@ export function useDrawing({
       canvasScreenTopRef.current = containerRect.top;
       canvasScreenLeftRef.current = containerRect.left;
 
-      // Step 4: Virtualization window shift check
+      // Virtualization window shift check
       const CAPPED_BUFFER = 400;
       const currentOffset = canvasContentOffsetRef.current;
-      if (Math.abs(scrollTop - currentOffset) > CAPPED_BUFFER) {
+      const diff = Math.abs(scrollTop - currentOffset);
+
+      if (diff > CAPPED_BUFFER) {
         canvasContentOffsetRef.current = scrollTop;
+        if (pageCanvasRef.current) {
+          pageCanvasRef.current.style.transform = `translate3d(0px, ${scrollTop}px, 0px)`;
+        }
         redrawRef.current?.();
       }
     };
@@ -144,11 +155,6 @@ export function useDrawing({
   } = zoomState;
 
   const previousToolRef = useRef<any>("pen");
-  const pageCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const pageCanvasWrapperRef = useRef<HTMLDivElement | null>(null);
-  const pageEraserOverlayRef = useRef<HTMLDivElement | null>(null);
-  const pagePenOverlayRef = useRef<HTMLDivElement | null>(null);
-  const copiedStrokesRef = useRef<any[]>([]);
 
   // 1. Tool State
   const toolState = useDrawingToolState();
