@@ -71,8 +71,8 @@ export function useCanvasRenderer({
 
     const dpr = window.devicePixelRatio || 1;
     const viewportHeight = viewportScrollRef?.current?.viewportHeight || (typeof window !== "undefined" ? window.innerHeight : 1000);
-    const CAPPED_BUFFER = 400;
-    const cappedCssHeight = Math.min(wrapper.clientHeight, Math.max(800, viewportHeight + CAPPED_BUFFER));
+    const CANVAS_BUFFER = 600;
+    const cappedCssHeight = Math.min(wrapper.clientHeight, Math.max(800, viewportHeight + CANVAS_BUFFER));
 
     const targetWidth = Math.floor(wrapper.clientWidth * zoom * dpr);
     const targetHeight = Math.floor(cappedCssHeight * zoom * dpr);
@@ -97,8 +97,8 @@ export function useCanvasRenderer({
     const drawingsList = activeDrawingsRef.current || (drawings ?? []);
 
     // Filter strokes visible within visible vertical window
-    const visibleMinY = contentOffsetY - 200;
-    const visibleMaxY = contentOffsetY + cappedCssHeight + 200;
+    const visibleMinY = contentOffsetY - 300;
+    const visibleMaxY = contentOffsetY + cappedCssHeight + 300;
 
     const visibleStrokes = drawingsList.filter((s: any) => {
       if (s.type === "textbox") return false;

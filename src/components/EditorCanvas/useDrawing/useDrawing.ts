@@ -65,11 +65,11 @@ export function useDrawing({
       canvasScreenLeftRef.current = containerRect.left;
 
       // Virtualization window shift check
-      const CAPPED_BUFFER = 400;
+      const SHIFT_THRESHOLD = 150;
       const currentOffset = canvasContentOffsetRef.current;
       const diff = Math.abs(scrollTop - currentOffset);
 
-      if (diff > CAPPED_BUFFER) {
+      if (diff > SHIFT_THRESHOLD) {
         canvasContentOffsetRef.current = scrollTop;
         if (pageCanvasRef.current) {
           pageCanvasRef.current.style.transform = `translate3d(0px, ${scrollTop}px, 0px)`;
