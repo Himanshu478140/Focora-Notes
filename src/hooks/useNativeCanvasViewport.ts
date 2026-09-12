@@ -212,22 +212,36 @@ export function clientToWorld(
   clientY: number,
   worldElement: HTMLElement | DOMRect,
   zoom: number,
-  viewportScroll?: { scrollLeft: number; scrollTop: number }
+  viewportScroll?: { scrollLeft: number; scrollTop: number } | null,
+  canvasContentOffsetY: number = 0,
+  canvasContentOffsetX: number = 0,
+  canvasScreenTop?: number,
+  canvasScreenLeft?: number
 ) {
-  const rect =
-    worldElement instanceof DOMRect
-      ? worldElement
-      : (worldElement as HTMLElement).getBoundingClientRect();
+  let screenTop: number;
+  let screenLeft: number;
+
+  if (typeof canvasScreenTop === "number" && typeof canvasScreenLeft === "number" && canvasScreenTop !== 0) {
+    screenTop = canvasScreenTop;
+    screenLeft = canvasScreenLeft;
+  } else {
+    const rect =
+      worldElement instanceof DOMRect
+        ? worldElement
+        : (worldElement as HTMLElement).getBoundingClientRect();
+    screenTop = rect.top;
+    screenLeft = rect.left;
+  }
 
   if (viewportScroll && worldElement instanceof HTMLElement && worldElement.id === "editor-scroll-container") {
     return {
-      x: (clientX - rect.left + viewportScroll.scrollLeft) / zoom,
-      y: (clientY - rect.top + viewportScroll.scrollTop) / zoom,
+      x: (clientX - screenLeft + viewportScroll.scrollLeft) / zoom + canvasContentOffsetX,
+      y: (clientY - screenTop + viewportScroll.scrollTop) / zoom + canvasContentOffsetY,
     };
   }
 
   return {
-    x: (clientX - rect.left) / zoom,
-    y: (clientY - rect.top) / zoom,
+    x: (clientX - screenLeft) / zoom + canvasContentOffsetX,
+    y: (clientY - screenTop) / zoom + canvasContentOffsetY,
   };
 }

@@ -58,6 +58,9 @@ interface UsePointerInteractionsOptions {
   dragDx: number;
   dragDy: number;
   viewportScrollRef?: React.MutableRefObject<import("../types").ViewportScrollState>;
+  canvasScreenTopRef?: React.MutableRefObject<number>;
+  canvasScreenLeftRef?: React.MutableRefObject<number>;
+  canvasContentOffsetRef?: React.MutableRefObject<number>;
 }
 
 export function usePointerInteractions({
@@ -104,6 +107,9 @@ export function usePointerInteractions({
   dragDx,
   dragDy,
   viewportScrollRef,
+  canvasScreenTopRef,
+  canvasScreenLeftRef,
+  canvasContentOffsetRef,
 }: UsePointerInteractionsOptions) {
   const pointerState = useRef<PointerState>({
     id: null,
@@ -187,7 +193,17 @@ export function usePointerInteractions({
       return;
     }
 
-    const worldPos = clientToWorld(e.clientX, e.clientY, canvas, zoom, viewportScrollRef?.current);
+    const worldPos = clientToWorld(
+      e.clientX,
+      e.clientY,
+      canvas,
+      zoom,
+      viewportScrollRef?.current,
+      canvasContentOffsetRef?.current || 0,
+      0,
+      canvasScreenTopRef?.current,
+      canvasScreenLeftRef?.current
+    );
     let x = worldPos.x;
     let y = worldPos.y;
     if (clipRect) {
@@ -512,7 +528,17 @@ export function usePointerInteractions({
     }
 
     const rect = gestureRectRef.current || canvas.getBoundingClientRect();
-    const worldPos = clientToWorld(e.clientX, e.clientY, rect, zoom, viewportScrollRef?.current);
+    const worldPos = clientToWorld(
+      e.clientX,
+      e.clientY,
+      rect,
+      zoom,
+      viewportScrollRef?.current,
+      canvasContentOffsetRef?.current || 0,
+      0,
+      canvasScreenTopRef?.current,
+      canvasScreenLeftRef?.current
+    );
     let x = worldPos.x;
     let y = worldPos.y;
     if (clipRect) {
@@ -999,7 +1025,17 @@ export function usePointerInteractions({
     const canvas = pageCanvasRef.current;
     const rect = gestureRectRef.current || (canvas ? canvas.getBoundingClientRect() : null);
     const { x, y } = rect
-      ? clientToWorld(e.clientX, e.clientY, rect, zoom)
+      ? clientToWorld(
+          e.clientX,
+          e.clientY,
+          rect,
+          zoom,
+          viewportScrollRef?.current,
+          canvasContentOffsetRef?.current || 0,
+          0,
+          canvasScreenTopRef?.current,
+          canvasScreenLeftRef?.current
+        )
       : { x: 0, y: 0 };
 
     if (activeDrawingsRef.current) {
