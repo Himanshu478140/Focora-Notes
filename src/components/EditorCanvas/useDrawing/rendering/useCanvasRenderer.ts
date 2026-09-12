@@ -31,6 +31,7 @@ interface UseCanvasRendererOptions {
   pointerStateRef?: React.MutableRefObject<PointerState>;
   needsBakeRef?: React.MutableRefObject<boolean>;
   viewportScrollRef?: React.MutableRefObject<import("../types").ViewportScrollState>;
+  canvasContentOffsetRef?: React.MutableRefObject<number>;
 }
 
 export function useCanvasRenderer({
@@ -57,6 +58,7 @@ export function useCanvasRenderer({
   pointerStateRef,
   needsBakeRef,
   viewportScrollRef,
+  canvasContentOffsetRef,
 }: UseCanvasRendererOptions) {
   const animationOffsetRef = useRef(0);
   const animationFrameIdRef = useRef<number | null>(null);
@@ -91,33 +93,45 @@ export function useCanvasRenderer({
 
     ctx.setTransform(dpr * zoom, 0, 0, dpr * zoom, 0, 0);
 
+    const contentOffsetY = canvasContentOffsetRef?.current || 0;
     const drawingsList = activeDrawingsRef.current || (drawings ?? []);
 
+    // Filter strokes visible within visible vertical window
+    const visibleMinY = contentOffsetY - 200;
+    const visibleMaxY = contentOffsetY + cappedCssHeight + 200;
+
+    const visibleStrokes = drawingsList.filter((s: any) => {
+      if (s.type === "textbox") return false;
+      const pageOffsetY = pageOffsets.get(s.pageId || "") || 0;
+      const strokeY = s.y + pageOffsetY;
+      const strokeMaxY = s.points ? strokeY + (s.height || 100) : strokeY;
+      return strokeMaxY >= visibleMinY && strokeY <= visibleMaxY;
+    });
+
     // 1. Draw glowing outlines for selected strokes (excluding textboxes)
-    drawingsList.forEach((stroke: any) => {
-      if (stroke.type !== "textbox" && selectedStrokeIds.has(stroke.id)) {
+    visibleStrokes.forEach((stroke: any) => {
+      if (selectedStrokeIds.has(stroke.id)) {
         const pageOffsetY = pageOffsets.get(stroke.pageId || "") || 0;
-        drawStrokePath(ctx, stroke as DrawingStroke, dragDx, dragDy + pageOffsetY, "rgba(124, 92, 252, 0.25)", 6);
+        const dy = dragDy + pageOffsetY - contentOffsetY;
+        drawStrokePath(ctx, stroke as DrawingStroke, dragDx, dy, "rgba(124, 92, 252, 0.25)", 6);
       }
     });
 
-    // 2. Draw all strokes normally (translating selected ones if dragging, excluding textboxes)
-    drawingsList.forEach((stroke: any) => {
-      if (stroke.type !== "textbox") {
-        const isSel = selectedStrokeIds.has(stroke.id);
-        const pageOffsetY = pageOffsets.get(stroke.pageId || "") || 0;
-        const dx = isSel ? dragDx : 0;
-        const dy = (isSel ? dragDy : 0) + pageOffsetY;
-        drawStrokePath(ctx, stroke as DrawingStroke, dx, dy);
-      }
+    // 2. Draw all visible strokes normally (subtracting contentOffsetY)
+    visibleStrokes.forEach((stroke: any) => {
+      const isSel = selectedStrokeIds.has(stroke.id);
+      const pageOffsetY = pageOffsets.get(stroke.pageId || "") || 0;
+      const dx = isSel ? dragDx : 0;
+      const dy = (isSel ? dragDy : 0) + pageOffsetY - contentOffsetY;
+      drawStrokePath(ctx, stroke as DrawingStroke, dx, dy);
     });
 
     // 3. Draw active lasso polygon path
     if (lassoPath.length > 1) {
       ctx.beginPath();
-      ctx.moveTo(lassoPath[0].x, lassoPath[0].y);
+      ctx.moveTo(lassoPath[0].x, lassoPath[0].y - contentOffsetY);
       for (let i = 1; i < lassoPath.length; i++) {
-        ctx.lineTo(lassoPath[i].x, lassoPath[i].y);
+        ctx.lineTo(lassoPath[i].x, lassoPath[i].y - contentOffsetY);
       }
       ctx.closePath();
 
@@ -152,9 +166,9 @@ export function useCanvasRenderer({
       if (isSingleGeometric && selectedStroke) {
         const pageOffsetY = pageOffsets.get(selectedStroke.pageId || "") || 0;
         const startX = selectedStroke.x;
-        const startY = selectedStroke.y + pageOffsetY;
-        const endX = startX + selectedStroke.points[0].dx;
-        const endY = startY + selectedStroke.points[0].dy;
+        const startY = selectedStroke.y + pageOffsetY - contentOffsetY;
+        const endX = startX + (selectedStroke.points?.[0]?.dx || 0);
+        const endY = startY + (selectedStroke.points?.[0]?.dy || 0);
         if (selectedStroke.tool === "circle") {
           const r = Math.hypot(endX - startX, endY - startY);
           minX = startX - r;
@@ -170,9 +184,9 @@ export function useCanvasRenderer({
         rotation = selectedStroke.rotation || 0;
       } else {
         minX = selectionBounds.minX + (transformType === "move" ? dragDx : 0);
-        minY = selectionBounds.minY + (transformType === "move" ? dragDy : 0);
+        minY = selectionBounds.minY + (transformType === "move" ? dragDy : 0) - contentOffsetY;
         maxX = selectionBounds.maxX + (transformType === "move" ? dragDx : 0);
-        maxY = selectionBounds.maxY + (transformType === "move" ? dragDy : 0);
+        maxY = selectionBounds.maxY + (transformType === "move" ? dragDy : 0) - contentOffsetY;
       }
 
       const cx = (minX + maxX) / 2;
@@ -234,8 +248,12 @@ export function useCanvasRenderer({
 
     // 5. Draw active drawing stroke or shape preview (in progress)
     if (isDrawing && pointerStateBuffer.length > 0) {
+      const bufferLocal = pointerStateBuffer.map((pt) => ({
+        ...pt,
+        y: pt.y - contentOffsetY,
+      }));
       if (drawTool === "pen" || drawTool === "highlighter") {
-        drawActiveStroke(ctx, pointerStateBuffer, drawColor, drawWidth, drawTool === "highlighter");
+        drawActiveStroke(ctx, bufferLocal, drawColor, drawWidth, drawTool === "highlighter");
       } else if (
         [
           "line",
@@ -249,8 +267,8 @@ export function useCanvasRenderer({
           "ellipse",
         ].includes(drawTool)
       ) {
-        const start = pointerStateBuffer[0];
-        const end = pointerStateBuffer[pointerStateBuffer.length - 1];
+        const start = bufferLocal[0];
+        const end = bufferLocal[bufferLocal.length - 1];
         const shapeWidth = Math.max(2, Math.min(6, drawWidth));
         drawActiveShapePreview(ctx, drawTool as any, start, end, drawColor, shapeWidth, fillColor);
       }
@@ -274,6 +292,7 @@ export function useCanvasRenderer({
     zoom,
     pageOffsets,
     pointerStateBuffer,
+    canvasContentOffsetRef,
   ]);
 
   // Trigger Redraw when drawings change or selection shifts
