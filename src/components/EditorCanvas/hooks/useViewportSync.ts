@@ -30,7 +30,7 @@ export function useViewportSync({
   const saveViewportTimeoutRef = useRef<any>(null);
 
   const handleViewportChange = useCallback((newZoom: number, newPanX: number, newPanY: number) => {
-    if (!page || activeView !== "canvas" || isInitializingViewportRef.current) return;
+    if (!page || !(page as any)._hydrated || activeView !== "canvas" || isInitializingViewportRef.current) return;
 
     const currentViewport = page.canvasData?.viewport;
     if (
@@ -83,7 +83,7 @@ export function useViewportSync({
 
   // Sync zoom changes
   useEffect(() => {
-    if (activeView === "canvas" && page) {
+    if (activeView === "canvas" && page && (page as any)._hydrated) {
       const container = editorScrollContainerRef.current;
       const currentPanX = container ? container.scrollLeft : 0;
       const currentPanY = container ? container.scrollTop : 0;

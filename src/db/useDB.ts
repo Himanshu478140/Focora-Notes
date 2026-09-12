@@ -152,12 +152,19 @@ export default function useDB() {
   }, []);
 
   const addPage = useCallback((page: Page) => {
-    setPages((prev) => [page, ...prev]);
-    pagesAPI.addPage(page).catch((err) => console.error(err));
+    const hydratedPage = { ...page, _hydrated: true };
+    setPages((prev) => [hydratedPage, ...prev]);
+    pagesAPI.addPage(hydratedPage).catch((err) => console.error(err));
     return page.id;
   }, []);
 
   const updatePage = useCallback((page: Page) => {
+    // HYDRATION SAFETY GUARD:
+    // Do not schedule or fire writes for pages that have not completed hydration from IndexedDB.
+    if (!(page as any)._hydrated) {
+      return page.id;
+    }
+
     // 1. Optimistic UI update
     setPages((prev) => prev.map((p) => (p.id === page.id ? page : p)));
 

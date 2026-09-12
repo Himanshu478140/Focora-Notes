@@ -37,7 +37,7 @@ export function usePageActions({
   const updatePage = useCallback(
     async (pageId: string, updates: Partial<Page>) => {
       const page = pagesRef.current.find((p) => p.id === pageId);
-      if (!page) return;
+      if (!page || !(page as any)._hydrated) return;
       const updatedPage = {
         ...page,
         ...updates,
