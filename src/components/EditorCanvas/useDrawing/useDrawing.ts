@@ -34,17 +34,37 @@ export function useDrawing({
     viewportHeight: 600,
   });
 
+  const canvasScreenTopRef = useRef<number>(0);
+  const canvasScreenLeftRef = useRef<number>(0);
+  const canvasContentOffsetRef = useRef<number>(0);
+  const redrawRef = useRef<(() => void) | null>(null);
+
   useEffect(() => {
     const container = viewportRef.current;
     if (!container) return;
 
     const updateScroll = () => {
+      const scrollTop = container.scrollTop;
+      const scrollLeft = container.scrollLeft;
+
       viewportScrollRef.current = {
-        scrollLeft: container.scrollLeft,
-        scrollTop: container.scrollTop,
+        scrollLeft,
+        scrollTop,
         viewportWidth: container.clientWidth,
         viewportHeight: container.clientHeight,
       };
+
+      const containerRect = container.getBoundingClientRect();
+      canvasScreenTopRef.current = containerRect.top;
+      canvasScreenLeftRef.current = containerRect.left;
+
+      // Step 4: Virtualization window shift check
+      const CAPPED_BUFFER = 400;
+      const currentOffset = canvasContentOffsetRef.current;
+      if (Math.abs(scrollTop - currentOffset) > CAPPED_BUFFER) {
+        canvasContentOffsetRef.current = scrollTop;
+        redrawRef.current?.();
+      }
     };
 
     updateScroll();
@@ -227,6 +247,9 @@ export function useDrawing({
     dragDx: selection.dragDx,
     dragDy: selection.dragDy,
     viewportScrollRef,
+    canvasScreenTopRef,
+    canvasScreenLeftRef,
+    canvasContentOffsetRef,
   });
 
   // 7. Renderer
@@ -254,7 +277,12 @@ export function useDrawing({
     pointerStateRef: pointer.pointerState,
     needsBakeRef: pointer.needsBakeRef,
     viewportScrollRef,
+    canvasContentOffsetRef,
   });
+
+  useEffect(() => {
+    redrawRef.current = renderer.redrawPageCanvas;
+  }, [renderer.redrawPageCanvas]);
 
   // 8. Event Registration
   const events = useCanvasEvents({
