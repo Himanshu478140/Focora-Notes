@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from "react";
+import React, { useEffect, useCallback, useRef, useMemo } from "react";
 import { Folder } from "@/data/mock";
 import { AppState } from "../types";
 
@@ -9,6 +9,9 @@ interface UsePreferencesOptions {
 }
 
 export function usePreferences({ state, setState, folders }: UsePreferencesOptions) {
+  const foldersRef = useRef(folders);
+  foldersRef.current = folders;
+
   // Load preferences from localStorage on mount
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -86,12 +89,15 @@ export function usePreferences({ state, setState, folders }: UsePreferencesOptio
   }, [setState]);
 
   const expandAllFolders = useCallback(() => {
-    setState((prev) => ({ ...prev, expandedFolderIds: folders.map((f) => f.id) }));
-  }, [folders, setState]);
+    setState((prev) => ({ ...prev, expandedFolderIds: foldersRef.current.map((f) => f.id) }));
+  }, [setState]);
 
-  return {
-    changeEditorFontScale,
-    collapseAllFolders,
-    expandAllFolders,
-  };
+  return useMemo(
+    () => ({
+      changeEditorFontScale,
+      collapseAllFolders,
+      expandAllFolders,
+    }),
+    [changeEditorFontScale, collapseAllFolders, expandAllFolders]
+  );
 }

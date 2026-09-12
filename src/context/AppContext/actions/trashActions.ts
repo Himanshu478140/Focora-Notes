@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useRef, useMemo } from "react";
 import { dbPromise, STORES } from "@/db/database";
 import { deleteImagesByPageId } from "@/db/images";
 import { Folder, Page } from "@/data/mock";
@@ -20,6 +20,11 @@ export function useTrashActions({
   dbEmptyTrash,
   refreshData,
 }: TrashActionsOptions) {
+  const trashFoldersRef = useRef(trashFolders);
+  trashFoldersRef.current = trashFolders;
+  const trashPagesRef = useRef(trashPages);
+  trashPagesRef.current = trashPages;
+
   const restorePage = useCallback(
     async (pageId: string) => {
       await dbRestorePageFromTrash(pageId);
@@ -81,7 +86,7 @@ export function useTrashActions({
         return { folders: foldersInTrash, pages: pagesInTrash };
       };
 
-      const descendants = getDescendantsInTrash(folderId, trashFolders, trashPages);
+      const descendants = getDescendantsInTrash(folderId, trashFoldersRef.current, trashPagesRef.current);
       const folderIdsToDelete = [folderId, ...descendants.folders.map((f) => f.id)];
       const pageIdsToDelete = descendants.pages.map((p) => p.id);
 
@@ -109,18 +114,21 @@ export function useTrashActions({
         console.error("Failed to delete folder permanently from trash:", e);
       }
     },
-    [trashFolders, trashPages, refreshData]
+    [refreshData]
   );
 
   const clearTrash = useCallback(async () => {
     await dbEmptyTrash();
   }, [dbEmptyTrash]);
 
-  return {
-    restorePage,
-    restoreFolder,
-    deletePagePermanently,
-    deleteFolderPermanently,
-    clearTrash,
-  };
+  return useMemo(
+    () => ({
+      restorePage,
+      restoreFolder,
+      deletePagePermanently,
+      deleteFolderPermanently,
+      clearTrash,
+    }),
+    [restorePage, restoreFolder, deletePagePermanently, deleteFolderPermanently, clearTrash]
+  );
 }

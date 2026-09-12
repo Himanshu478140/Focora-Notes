@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useRef, useMemo } from "react";
 import { Collection } from "@/data/mock";
 import { dbPromise, STORES } from "@/db/database";
 
@@ -15,6 +15,9 @@ export function useCollectionActions({
   dbDeleteCollection,
   refreshData,
 }: CollectionActionsOptions) {
+  const collectionsRef = useRef(collections);
+  collectionsRef.current = collections;
+
   const addCollection = useCallback(
     (name: string, folderIds: string[], pageIds: string[]) => {
       const newCollection: Collection = {
@@ -32,7 +35,7 @@ export function useCollectionActions({
 
   const updateCollection = useCallback(
     async (id: string, updates: Partial<Collection>) => {
-      const collection = collections.find((c) => c.id === id);
+      const collection = collectionsRef.current.find((c) => c.id === id);
       if (collection) {
         try {
           const db = await dbPromise;
@@ -44,7 +47,7 @@ export function useCollectionActions({
         }
       }
     },
-    [collections, refreshData]
+    [refreshData]
   );
 
   const deleteCollection = useCallback(
@@ -54,9 +57,12 @@ export function useCollectionActions({
     [dbDeleteCollection]
   );
 
-  return {
-    addCollection,
-    updateCollection,
-    deleteCollection,
-  };
+  return useMemo(
+    () => ({
+      addCollection,
+      updateCollection,
+      deleteCollection,
+    }),
+    [addCollection, updateCollection, deleteCollection]
+  );
 }

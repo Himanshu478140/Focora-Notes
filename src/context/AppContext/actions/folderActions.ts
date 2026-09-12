@@ -1,4 +1,4 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useRef, useMemo } from "react";
 import { Folder, Page } from "@/data/mock";
 import { AppState } from "../types";
 
@@ -19,6 +19,11 @@ export function useFolderActions({
   dbUpdateFolder,
   dbMoveFolderToTrash,
 }: FolderActionsOptions) {
+  const foldersRef = useRef(folders);
+  foldersRef.current = folders;
+  const pagesRef = useRef(pages);
+  pagesRef.current = pages;
+
   const toggleFolderExpanded = useCallback(
     (id: string) => {
       setState((prev) => {
@@ -71,7 +76,7 @@ export function useFolderActions({
       };
 
       dbAddFolder(newFolder);
-      setTimeout(() => expandAncestors(parentId, folders), 10);
+      setTimeout(() => expandAncestors(parentId, foldersRef.current), 10);
 
       setState((prev) => ({
         ...prev,
@@ -81,31 +86,31 @@ export function useFolderActions({
 
       return newFolder.id;
     },
-    [dbAddFolder, expandAncestors, folders, setState]
+    [dbAddFolder, expandAncestors, setState]
   );
 
   const renameFolder = useCallback(
     async (id: string, name: string) => {
-      const folder = folders.find((f) => f.id === id);
+      const folder = foldersRef.current.find((f) => f.id === id);
       if (folder) {
         await dbUpdateFolder({ ...folder, name: name.trim() || "Untitled Folder" });
       }
     },
-    [folders, dbUpdateFolder]
+    [dbUpdateFolder]
   );
 
   const deleteFolder = useCallback(
     async (id: string) => {
-      const folderToDelete = folders.find((f) => f.id === id);
+      const folderToDelete = foldersRef.current.find((f) => f.id === id);
       if (!folderToDelete) return;
 
       await dbMoveFolderToTrash(id);
 
       const getDescendantFolders = (folderId: string): Folder[] => {
         let list: Folder[] = [];
-        const f = folders.find((x) => x.id === folderId);
+        const f = foldersRef.current.find((x) => x.id === folderId);
         if (f) list.push(f);
-        const children = folders.filter((x) => x.parentId === folderId);
+        const children = foldersRef.current.filter((x) => x.parentId === folderId);
         children.forEach((c) => {
           list = [...list, ...getDescendantFolders(c.id)];
         });
@@ -114,12 +119,12 @@ export function useFolderActions({
 
       const descendantFolders = getDescendantFolders(id);
       const folderIdsToDelete = new Set(descendantFolders.map((f) => f.id));
-      const remainingPages = pages.filter((p) => !p.parentFolderId || !folderIdsToDelete.has(p.parentFolderId));
+      const remainingPages = pagesRef.current.filter((p) => !p.parentFolderId || !folderIdsToDelete.has(p.parentFolderId));
 
       setState((prev) => {
         const wasActiveDeleted =
           prev.activePageId &&
-          pages.some((p) => p.id === prev.activePageId && p.parentFolderId && folderIdsToDelete.has(p.parentFolderId));
+          pagesRef.current.some((p) => p.id === prev.activePageId && p.parentFolderId && folderIdsToDelete.has(p.parentFolderId));
         if (wasActiveDeleted) {
           let nextPageId: string | null = null;
           if (remainingPages.length > 0) {
@@ -135,14 +140,17 @@ export function useFolderActions({
         return prev;
       });
     },
-    [folders, pages, dbMoveFolderToTrash, setState]
+    [dbMoveFolderToTrash, setState]
   );
 
-  return {
-    toggleFolderExpanded,
-    expandAncestors,
-    addFolder,
-    renameFolder,
-    deleteFolder,
-  };
+  return useMemo(
+    () => ({
+      toggleFolderExpanded,
+      expandAncestors,
+      addFolder,
+      renameFolder,
+      deleteFolder,
+    }),
+    [toggleFolderExpanded, expandAncestors, addFolder, renameFolder, deleteFolder]
+  );
 }

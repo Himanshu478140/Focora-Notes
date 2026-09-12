@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from "react";
+import React, { useCallback, useEffect, useRef, useMemo } from "react";
 import { Page, Folder } from "@/data/mock";
 import { AppState } from "../types";
 
@@ -29,9 +29,14 @@ export function usePageActions({
   dbMovePageToTrash,
   expandAncestors,
 }: PageActionsOptions) {
+  const pagesRef = useRef(pages);
+  pagesRef.current = pages;
+  const foldersRef = useRef(folders);
+  foldersRef.current = folders;
+
   const updatePage = useCallback(
     async (pageId: string, updates: Partial<Page>) => {
-      const page = pages.find((p) => p.id === pageId);
+      const page = pagesRef.current.find((p) => p.id === pageId);
       if (!page) return;
       const updatedPage = {
         ...page,
@@ -45,7 +50,7 @@ export function usePageActions({
       }
       await dbUpdatePage(updatedPage);
     },
-    [pages, dbUpdatePage]
+    [dbUpdatePage]
   );
 
   const addPage = useCallback(
@@ -68,7 +73,7 @@ export function usePageActions({
       };
 
       dbAddPage(newPage);
-      setTimeout(() => expandAncestors(parentFolderId, folders), 10);
+      setTimeout(() => expandAncestors(parentFolderId, foldersRef.current), 10);
 
       setState((prev) => ({
         ...prev,
@@ -80,27 +85,27 @@ export function usePageActions({
 
       return newPage.id;
     },
-    [dbAddPage, expandAncestors, folders, setState]
+    [dbAddPage, expandAncestors, setState]
   );
 
   const renamePage = useCallback(
     async (id: string, title: string) => {
-      const page = pages.find((p) => p.id === id);
+      const page = pagesRef.current.find((p) => p.id === id);
       if (page) {
         await dbUpdatePage({ ...page, title: title.trim() || "Untitled Page" });
       }
     },
-    [pages, dbUpdatePage]
+    [dbUpdatePage]
   );
 
   const deletePage = useCallback(
     async (pageId: string) => {
-      const pageToDelete = pages.find((p) => p.id === pageId);
+      const pageToDelete = pagesRef.current.find((p) => p.id === pageId);
       if (pageToDelete) {
         await dbMovePageToTrash(pageId);
       }
 
-      const remainingPages = pages.filter((p) => p.id !== pageId);
+      const remainingPages = pagesRef.current.filter((p) => p.id !== pageId);
       setState((prev) => {
         if (prev.activePageId === pageId) {
           let nextPageId: string | null = null;
@@ -121,11 +126,11 @@ export function usePageActions({
         return prev;
       });
     },
-    [pages, dbMovePageToTrash, setState]
+    [dbMovePageToTrash, setState]
   );
 
   const addRoughSheet = useCallback(async () => {
-    let roughSheetsFolder = folders.find((f) => f.parentId === null && f.name === "Rough Sheets");
+    let roughSheetsFolder = foldersRef.current.find((f) => f.parentId === null && f.name === "Rough Sheets");
     let folderId = "";
 
     if (roughSheetsFolder) {
@@ -141,7 +146,7 @@ export function usePageActions({
       await dbAddFolder(roughSheetsFolder);
     }
 
-    const roughSheetCount = pages.filter((p) => p.pageType === "roughSheet").length;
+    const roughSheetCount = pagesRef.current.filter((p) => p.pageType === "roughSheet").length;
     const newPageId = `pg-rs-${Date.now()}`;
 
     const newPage: Page = {
@@ -171,7 +176,7 @@ export function usePageActions({
         expandedFolderIds: Array.from(nextExpanded),
       };
     });
-  }, [folders, pages, dbAddFolder, dbAddPage, setState]);
+  }, [dbAddFolder, dbAddPage, setState]);
 
   // Global Ctrl+Shift+N shortcut for Quick Rough Sheet
   useEffect(() => {
@@ -185,11 +190,14 @@ export function usePageActions({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [addRoughSheet]);
 
-  return {
-    updatePage,
-    addPage,
-    renamePage,
-    deletePage,
-    addRoughSheet,
-  };
+  return useMemo(
+    () => ({
+      updatePage,
+      addPage,
+      renamePage,
+      deletePage,
+      addRoughSheet,
+    }),
+    [updatePage, addPage, renamePage, deletePage, addRoughSheet]
+  );
 }
