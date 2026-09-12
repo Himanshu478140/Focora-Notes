@@ -26,7 +26,55 @@ interface CanvasTextBoxOverlayProps {
   canvasPages?: any[];
 }
 
-export function CanvasTextBoxOverlay({
+function getTextboxSignature(list: any[]): string {
+  if (!list) return "";
+  let key = "";
+  for (let i = 0; i < list.length; i++) {
+    const d = list[i];
+    if (d?.type === "textbox") {
+      key += `${d.id}:${d.x}:${d.y}:${d.width}:${d.height}:${d.content}:${d.color}:${d.fontSize}:${d.fontFamily}:${d.locked}|`;
+    }
+  }
+  return key;
+}
+
+function areCanvasTextBoxOverlayPropsEqual(
+  prev: CanvasTextBoxOverlayProps,
+  next: CanvasTextBoxOverlayProps
+): boolean {
+  if (
+    prev.activeView !== next.activeView ||
+    prev.drawModeActive !== next.drawModeActive ||
+    prev.drawTool !== next.drawTool ||
+    prev.editingTextBoxId !== next.editingTextBoxId ||
+    prev.zoom !== next.zoom ||
+    prev.dragDx !== next.dragDx ||
+    prev.dragDy !== next.dragDy ||
+    prev.clipRect !== next.clipRect ||
+    prev.pageOffsets !== next.pageOffsets ||
+    prev.canvasPages !== next.canvasPages
+  ) {
+    return false;
+  }
+
+  if (prev.selectedStrokeIds !== next.selectedStrokeIds) {
+    const prevTb = (prev.drawings ?? []).filter((d: any) => d?.type === "textbox");
+    const nextTb = (next.drawings ?? []).filter((d: any) => d?.type === "textbox");
+    const hasSelPrev = prevTb.some((tb: any) => prev.selectedStrokeIds.has(tb.id));
+    const hasSelNext = nextTb.some((tb: any) => next.selectedStrokeIds.has(tb.id));
+    if (hasSelPrev || hasSelNext) return false;
+  }
+
+  if (prev.drawings !== next.drawings) {
+    if (getTextboxSignature(prev.drawings) !== getTextboxSignature(next.drawings)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function CanvasTextBoxOverlayComponent({
   activeView = "document",
   drawings,
   onUpdateDrawings,
@@ -47,7 +95,15 @@ export function CanvasTextBoxOverlay({
   pageGap,
   canvasPages,
 }: CanvasTextBoxOverlayProps) {
-  const textboxes = drawings.filter((obj: any): obj is CanvasTextBox => obj.type === "textbox");
+  const textboxIdsKey = React.useMemo(
+    () => getTextboxSignature(drawings),
+    [drawings]
+  );
+
+  const textboxes = React.useMemo(
+    () => (drawings ?? []).filter((obj: any): obj is CanvasTextBox => obj.type === "textbox"),
+    [textboxIdsKey]
+  );
 
   if (textboxes.length === 0) return null;
 
@@ -317,4 +373,10 @@ export function CanvasTextBoxOverlay({
     </>
   );
 }
+
+export const CanvasTextBoxOverlay = React.memo(
+  CanvasTextBoxOverlayComponent,
+  areCanvasTextBoxOverlayPropsEqual
+);
+
 export default CanvasTextBoxOverlay;
