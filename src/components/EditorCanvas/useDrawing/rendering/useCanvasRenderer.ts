@@ -30,7 +30,6 @@ interface UseCanvasRendererOptions {
   pointerStateBuffer: { x: number; y: number; pressure: number }[];
   pointerStateRef?: React.MutableRefObject<PointerState>;
   needsBakeRef?: React.MutableRefObject<boolean>;
-  needsBakeRef?: React.MutableRefObject<boolean>;
   viewportScrollRef?: React.MutableRefObject<import("../types").ViewportScrollState>;
 }
 
