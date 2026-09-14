@@ -60,7 +60,6 @@ interface UsePointerInteractionsOptions {
   viewportScrollRef?: React.MutableRefObject<import("../types").ViewportScrollState>;
   canvasScreenTopRef?: React.MutableRefObject<number>;
   canvasScreenLeftRef?: React.MutableRefObject<number>;
-  canvasContentOffsetRef?: React.MutableRefObject<number>;
 }
 
 export function usePointerInteractions({
@@ -109,7 +108,6 @@ export function usePointerInteractions({
   viewportScrollRef,
   canvasScreenTopRef,
   canvasScreenLeftRef,
-  canvasContentOffsetRef,
 }: UsePointerInteractionsOptions) {
   const pointerState = useRef<PointerState>({
     id: null,
@@ -199,8 +197,6 @@ export function usePointerInteractions({
       canvas,
       zoom,
       viewportScrollRef?.current,
-      canvasContentOffsetRef?.current || 0,
-      0,
       canvasScreenTopRef?.current,
       canvasScreenLeftRef?.current
     );
@@ -534,8 +530,6 @@ export function usePointerInteractions({
       rect,
       zoom,
       viewportScrollRef?.current,
-      canvasContentOffsetRef?.current || 0,
-      0,
       canvasScreenTopRef?.current,
       canvasScreenLeftRef?.current
     );
@@ -1031,8 +1025,6 @@ export function usePointerInteractions({
           rect,
           zoom,
           viewportScrollRef?.current,
-          canvasContentOffsetRef?.current || 0,
-          0,
           canvasScreenTopRef?.current,
           canvasScreenLeftRef?.current
         )
