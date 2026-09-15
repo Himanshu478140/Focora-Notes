@@ -213,6 +213,8 @@ export function clientToWorld(
   worldElement: HTMLElement | DOMRect,
   zoom: number,
   viewportScroll?: { scrollLeft: number; scrollTop: number } | null,
+  canvasContentOffsetY: number = 0,
+  canvasContentOffsetX: number = 0,
   canvasScreenTop?: number,
   canvasScreenLeft?: number
 ) {
@@ -233,13 +235,13 @@ export function clientToWorld(
 
   if (viewportScroll && worldElement instanceof HTMLElement && worldElement.id === "editor-scroll-container") {
     return {
-      x: (clientX - screenLeft + viewportScroll.scrollLeft) / zoom,
-      y: (clientY - screenTop + viewportScroll.scrollTop) / zoom,
+      x: (clientX - screenLeft + viewportScroll.scrollLeft) / zoom + canvasContentOffsetX,
+      y: (clientY - screenTop + viewportScroll.scrollTop) / zoom + canvasContentOffsetY,
     };
   }
 
   return {
-    x: (clientX - screenLeft) / zoom,
-    y: (clientY - screenTop) / zoom,
+    x: (clientX - screenLeft) / zoom + canvasContentOffsetX,
+    y: (clientY - screenTop) / zoom + canvasContentOffsetY,
   };
 }

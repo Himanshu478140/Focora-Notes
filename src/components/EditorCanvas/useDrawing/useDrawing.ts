@@ -42,13 +42,12 @@ export function useDrawing({
 
   const canvasScreenTopRef = useRef<number>(0);
   const canvasScreenLeftRef = useRef<number>(0);
+  const canvasContentOffsetRef = useRef<number>(0);
   const redrawRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const container = viewportRef.current;
     if (!container) return;
-
-    let animFrameId: number | null = null;
 
     const updateScroll = () => {
       const scrollTop = container.scrollTop;
@@ -65,11 +64,17 @@ export function useDrawing({
       canvasScreenTopRef.current = containerRect.top;
       canvasScreenLeftRef.current = containerRect.left;
 
-      if (animFrameId === null) {
-        animFrameId = requestAnimationFrame(() => {
-          animFrameId = null;
-          redrawRef.current?.();
-        });
+      // Virtualization window shift check
+      const SHIFT_THRESHOLD = 150;
+      const currentOffset = canvasContentOffsetRef.current;
+      const diff = Math.abs(scrollTop - currentOffset);
+
+      if (diff > SHIFT_THRESHOLD) {
+        canvasContentOffsetRef.current = scrollTop;
+        if (pageCanvasRef.current) {
+          pageCanvasRef.current.style.transform = `translate3d(0px, ${scrollTop}px, 0px)`;
+        }
+        redrawRef.current?.();
       }
     };
 
@@ -77,7 +82,6 @@ export function useDrawing({
     container.addEventListener("scroll", updateScroll, { passive: true });
     return () => {
       container.removeEventListener("scroll", updateScroll);
-      if (animFrameId !== null) cancelAnimationFrame(animFrameId);
     };
   }, [viewportRef]);
 
@@ -251,6 +255,7 @@ export function useDrawing({
     viewportScrollRef,
     canvasScreenTopRef,
     canvasScreenLeftRef,
+    canvasContentOffsetRef,
   });
 
   // 7. Renderer
@@ -278,6 +283,7 @@ export function useDrawing({
     pointerStateRef: pointer.pointerState,
     needsBakeRef: pointer.needsBakeRef,
     viewportScrollRef,
+    canvasContentOffsetRef,
   });
 
   useEffect(() => {

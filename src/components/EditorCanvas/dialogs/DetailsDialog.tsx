@@ -10,6 +10,20 @@ interface DetailsDialogProps {
 export function DetailsDialog({ page, onClose }: DetailsDialogProps) {
   if (!page) return null;
 
+  const docStrokes = Array.isArray(page.drawings) ? page.drawings.filter((d: any) => d && d.type !== "textbox") : [];
+  const canvasStrokes = Array.isArray(page.canvasData?.drawings) ? page.canvasData.drawings.filter((d: any) => d && d.type !== "textbox") : [];
+  const strokeCount = page.activeView === "canvas" ? (canvasStrokes.length || docStrokes.length) : (docStrokes.length || canvasStrokes.length);
+
+  let fullText = page.content ? page.content.replace(/<[^>]*>/g, ' ') : '';
+  const textboxes = page.canvasData?.textboxes || [];
+  if (Array.isArray(textboxes)) {
+    textboxes.forEach((tb: any) => {
+      const tbText = tb.text || tb.content || '';
+      fullText += ' ' + tbText.replace(/<[^>]*>/g, ' ');
+    });
+  }
+  const wordCount = fullText.split(/\s+/).filter(Boolean).length;
+
   return (
     <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
       <div
@@ -22,13 +36,13 @@ export function DetailsDialog({ page, onClose }: DetailsDialogProps) {
           <div className="flex justify-between items-center py-1.5 border-b border-gray-100 dark:border-white/[0.04]">
             <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">Word Count</span>
             <span className="text-xs font-bold text-gray-800 dark:text-gray-200">
-              {page.content ? page.content.replace(/<[^>]*>/g, '').split(/\s+/).filter(Boolean).length : 0} words
+              {wordCount} words
             </span>
           </div>
           <div className="flex justify-between items-center py-1.5 border-b border-gray-100 dark:border-white/[0.04]">
             <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">Ink Strokes</span>
             <span className="text-xs font-bold text-gray-800 dark:text-gray-200">
-              {page.drawings?.length || 0} strokes
+              {strokeCount} strokes
             </span>
           </div>
           <div className="flex justify-between items-center py-1.5 border-b border-gray-100 dark:border-white/[0.04]">

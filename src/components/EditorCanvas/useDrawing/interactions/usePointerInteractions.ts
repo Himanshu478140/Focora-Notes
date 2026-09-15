@@ -13,6 +13,7 @@ import { clearOutlineCache } from "@/utils/drawing/rendering";
 import { clientToWorld } from "@/hooks/useNativeCanvasViewport";
 import { PointerState } from "../types";
 import { DrawToolType } from "../state/useDrawingToolState";
+import { PERF_DEBUG, recordCoordStashed } from "@/utils/drawing/perfDebug";
 
 interface UsePointerInteractionsOptions {
   pageCanvasRef: React.RefObject<HTMLCanvasElement | null>;
@@ -60,6 +61,7 @@ interface UsePointerInteractionsOptions {
   viewportScrollRef?: React.MutableRefObject<import("../types").ViewportScrollState>;
   canvasScreenTopRef?: React.MutableRefObject<number>;
   canvasScreenLeftRef?: React.MutableRefObject<number>;
+  canvasContentOffsetRef?: React.MutableRefObject<number>;
 }
 
 export function usePointerInteractions({
@@ -108,6 +110,7 @@ export function usePointerInteractions({
   viewportScrollRef,
   canvasScreenTopRef,
   canvasScreenLeftRef,
+  canvasContentOffsetRef,
 }: UsePointerInteractionsOptions) {
   const pointerState = useRef<PointerState>({
     id: null,
@@ -197,6 +200,8 @@ export function usePointerInteractions({
       canvas,
       zoom,
       viewportScrollRef?.current,
+      canvasContentOffsetRef?.current || 0,
+      0,
       canvasScreenTopRef?.current,
       canvasScreenLeftRef?.current
     );
@@ -530,6 +535,8 @@ export function usePointerInteractions({
       rect,
       zoom,
       viewportScrollRef?.current,
+      canvasContentOffsetRef?.current || 0,
+      0,
       canvasScreenTopRef?.current,
       canvasScreenLeftRef?.current
     );
@@ -855,6 +862,9 @@ export function usePointerInteractions({
 
     const point = { x, y, pressure: e.pressure };
     s.buffer.push(point);
+    if (PERF_DEBUG) {
+      recordCoordStashed();
+    }
     s.maxPressure = Math.max(s.maxPressure, e.pressure);
 
     if (s.buffer.length >= 250 && (drawTool === "pen" || drawTool === "highlighter")) {
@@ -1025,6 +1035,8 @@ export function usePointerInteractions({
           rect,
           zoom,
           viewportScrollRef?.current,
+          canvasContentOffsetRef?.current || 0,
+          0,
           canvasScreenTopRef?.current,
           canvasScreenLeftRef?.current
         )

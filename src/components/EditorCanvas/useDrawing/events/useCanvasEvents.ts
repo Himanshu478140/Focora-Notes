@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from "react";
 import { shouldBypassDrawing } from "../types";
 import { clientToWorld } from "@/hooks/useNativeCanvasViewport";
+import { PERF_DEBUG, recordPointerEntry, recordPenOverlayWritten } from "@/utils/drawing/perfDebug";
 
 interface UseCanvasEventsOptions {
   pageCanvasRef: React.RefObject<HTMLCanvasElement | null>;
@@ -80,7 +81,20 @@ export function useCanvasEvents({
       handlers.handlePagePointerDown(e);
     };
 
+    const hasRawUpdate = typeof window !== "undefined" && "onpointerrawupdate" in window;
+
+    const onPointerRawUpdate = (e: PointerEvent) => {
+      if (PERF_DEBUG && e.pointerType === "pen") {
+        recordPointerEntry();
+      }
+    };
+
     const onPointerMove = (e: PointerEvent) => {
+      if (PERF_DEBUG) {
+        if (e.pointerType !== "pen" || !hasRawUpdate) {
+          recordPointerEntry();
+        }
+      }
       const handlers = pageHandlersRef.current;
       if (nestedPointerIdsRef.current.has(e.pointerId) || shouldBypassDrawing(e.target, handlers.drawTool, handlers.drawModeActive)) {
         return;
@@ -128,6 +142,9 @@ export function useCanvasEvents({
           if (fillPath) {
             fillPath.setAttribute("stroke", handlers.drawColor);
             fillPath.setAttribute("fill", handlers.drawColor);
+          }
+          if (PERF_DEBUG) {
+            recordPenOverlayWritten();
           }
         } else {
           pagePenOverlayRef.current.style.display = "none";
@@ -182,6 +199,9 @@ export function useCanvasEvents({
 
     wrapper.addEventListener("pointerdown", onPointerDown, { capture: true, passive: false });
     wrapper.addEventListener("pointermove", onPointerMove, { capture: true, passive: false });
+    if ("onpointerrawupdate" in window) {
+      wrapper.addEventListener("pointerrawupdate" as any, onPointerRawUpdate, { capture: true, passive: true });
+    }
     wrapper.addEventListener("pointerup", onPointerUp, { capture: true, passive: false });
     wrapper.addEventListener("pointercancel", onPointerUp, { capture: true, passive: false });
     wrapper.addEventListener("lostpointercapture", onPointerUp, { capture: true, passive: false });
@@ -192,6 +212,9 @@ export function useCanvasEvents({
     return () => {
       wrapper.removeEventListener("pointerdown", onPointerDown, { capture: true });
       wrapper.removeEventListener("pointermove", onPointerMove, { capture: true });
+      if ("onpointerrawupdate" in window) {
+        wrapper.removeEventListener("pointerrawupdate" as any, onPointerRawUpdate, { capture: true });
+      }
       wrapper.removeEventListener("pointerup", onPointerUp, { capture: true });
       wrapper.removeEventListener("pointercancel", onPointerUp, { capture: true });
       wrapper.removeEventListener("lostpointercapture", onPointerUp, { capture: true });

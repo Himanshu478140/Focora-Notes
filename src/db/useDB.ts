@@ -177,7 +177,7 @@ export default function useDB() {
     const timeoutId = setTimeout(() => {
       pendingWritesRef.current.delete(page.id);
       pagesAPI.updatePage(page).catch((err) => console.error("focora/useDB: Save failed:", err));
-    }, 800);
+    }, 60000);
 
     pendingWritesRef.current.set(page.id, { page, timeoutId });
     return page.id;
