@@ -81,17 +81,17 @@ export function useCanvasRenderer({
       if (!canvas || !wrapper) return;
 
       const dpr = window.devicePixelRatio || 1;
-      const viewportHeight = viewportScrollRef?.current?.viewportHeight || (typeof window !== "undefined" ? window.innerHeight : 1000);
-      const cappedCssHeight = Math.min(wrapper.clientHeight, Math.max(800, viewportHeight));
+      const viewportWidth = viewportScrollRef?.current?.viewportWidth || wrapper.clientWidth || (typeof window !== "undefined" ? window.innerWidth : 800);
+      const viewportHeight = viewportScrollRef?.current?.viewportHeight || wrapper.clientHeight || (typeof window !== "undefined" ? window.innerHeight : 1000);
 
-      const targetWidth = Math.floor(wrapper.clientWidth * zoom * dpr);
-      const targetHeight = Math.floor(cappedCssHeight * zoom * dpr);
+      const targetWidth = Math.floor(viewportWidth * zoom * dpr);
+      const targetHeight = Math.floor(viewportHeight * zoom * dpr);
 
       if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
         canvas.width = targetWidth;
         canvas.height = targetHeight;
-        canvas.style.height = `${cappedCssHeight}px`;
-        canvas.style.width = `${wrapper.clientWidth}px`;
+        canvas.style.height = `${viewportHeight}px`;
+        canvas.style.width = `${viewportWidth}px`;
       }
 
       const ctx = canvas.getContext("2d");

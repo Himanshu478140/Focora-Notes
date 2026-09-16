@@ -58,15 +58,6 @@ export default function CanvasOverlays({
 }: CanvasOverlaysProps) {
   return (
     <>
-      {/* Transparent canvas overlay */}
-      <canvas
-        ref={pageCanvasRef}
-        className="absolute top-0 left-0 w-full z-30 pointer-events-none transition-opacity duration-200 opacity-100"
-        style={{
-          touchAction: "pan-x pan-y"
-        }}
-      />
-
       {/* CanvasTextBox Overlays */}
       <CanvasTextBoxOverlay
         activeView={activeView}

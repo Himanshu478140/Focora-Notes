@@ -50,10 +50,6 @@ export function useDrawing({
     const container = viewportRef.current;
     if (!container) return;
 
-    if (pageCanvasRef.current) {
-      pageCanvasRef.current.style.transform = "translate3d(0px, 0px, 0px)";
-    }
-
     const updateScroll = () => {
       const scrollTop = container.scrollTop;
       const scrollLeft = container.scrollLeft;
@@ -86,7 +82,7 @@ export function useDrawing({
         cancelAnimationFrame(scrollRafIdRef.current);
       }
     };
-  }, [viewportRef, pageCanvasRef]);
+  }, [viewportRef]);
 
   const canvasPages = useMemo(() => {
     return page?.canvasData?.metadata?.pages ?? DEFAULT_CANVAS_PAGES;

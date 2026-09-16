@@ -376,6 +376,7 @@ export default function EditorCanvas() {
 
         <div className="flex-1 flex flex-row overflow-hidden relative min-h-0 min-w-0">
           <WorkspaceViewport
+            pageCanvasRef={pageCanvasRef}
             editorScrollContainerRef={editorScrollContainerRef}
             pageCanvasWrapperRef={pageCanvasWrapperRef}
             isFixedLayout={isFixedLayout}

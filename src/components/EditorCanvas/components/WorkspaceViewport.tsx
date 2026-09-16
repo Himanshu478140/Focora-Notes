@@ -4,6 +4,7 @@ import React, { useEffect } from "react";
 import { getDynamicBackgroundStyle } from "../utils/backgroundPattern";
 
 interface WorkspaceViewportProps {
+  pageCanvasRef?: React.RefObject<HTMLCanvasElement | null>;
   editorScrollContainerRef: React.RefObject<HTMLDivElement | null>;
   pageCanvasWrapperRef: React.RefObject<HTMLDivElement | null>;
   isFixedLayout: boolean;
@@ -25,6 +26,7 @@ interface WorkspaceViewportProps {
 }
 
 export default function WorkspaceViewport({
+  pageCanvasRef,
   editorScrollContainerRef,
   pageCanvasWrapperRef,
   isFixedLayout,
@@ -49,18 +51,26 @@ export default function WorkspaceViewport({
     : undefined;
 
   return (
-    <div
-      ref={editorScrollContainerRef}
-      id="editor-scroll-container"
-      className={`flex-1 overflow-y-auto ${
-        activeView === "document" || isFixedLayout ? "overflow-x-hidden" : "overflow-x-auto"
-      } scrollbar-thin relative ${
-        isFixedLayout
-          ? "bg-neutral-100/60 dark:bg-[#121212]/50"
-          : `${pageBgClass} ${!drawModeActive ? pagePatternClass : ""}`
-      }`}
-      style={customBackgroundStyle}
-    >
+    <div className="relative flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden">
+      {/* Viewport-fixed 2D drawing canvas overlay */}
+      <canvas
+        ref={pageCanvasRef}
+        className="absolute top-0 left-0 w-full h-full z-30 pointer-events-none transition-opacity duration-200 opacity-100"
+        style={{ touchAction: "pan-x pan-y" }}
+      />
+
+      <div
+        ref={editorScrollContainerRef}
+        id="editor-scroll-container"
+        className={`flex-1 overflow-y-auto ${
+          activeView === "document" || isFixedLayout ? "overflow-x-hidden" : "overflow-x-auto"
+        } scrollbar-thin relative ${
+          isFixedLayout
+            ? "bg-neutral-100/60 dark:bg-[#121212]/50"
+            : `${pageBgClass} ${!drawModeActive ? pagePatternClass : ""}`
+        }`}
+        style={customBackgroundStyle}
+      >
       <div
         id="zoom-footprint"
         style={{
@@ -117,5 +127,6 @@ export default function WorkspaceViewport({
         </div>
       </div>
     </div>
+  </div>
   );
 }
