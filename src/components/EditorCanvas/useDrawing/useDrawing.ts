@@ -44,10 +44,15 @@ export function useDrawing({
   const canvasScreenLeftRef = useRef<number>(0);
   const canvasContentOffsetRef = useRef<number>(0);
   const redrawRef = useRef<(() => void) | null>(null);
+  const scrollRafIdRef = useRef<number | null>(null);
 
   useEffect(() => {
     const container = viewportRef.current;
     if (!container) return;
+
+    if (pageCanvasRef.current) {
+      pageCanvasRef.current.style.transform = "translate3d(0px, 0px, 0px)";
+    }
 
     const updateScroll = () => {
       const scrollTop = container.scrollTop;
@@ -64,19 +69,24 @@ export function useDrawing({
       canvasScreenTopRef.current = containerRect.top;
       canvasScreenLeftRef.current = containerRect.left;
 
-      // Trigger canvas redraw on scroll using fixed-viewport transform
-      if (pageCanvasRef.current && pageCanvasRef.current.style.transform !== "translate3d(0px, 0px, 0px)") {
-        pageCanvasRef.current.style.transform = "translate3d(0px, 0px, 0px)";
+      // rAF-debounced canvas redraw on scroll
+      if (scrollRafIdRef.current === null) {
+        scrollRafIdRef.current = requestAnimationFrame(() => {
+          scrollRafIdRef.current = null;
+          redrawRef.current?.();
+        });
       }
-      redrawRef.current?.();
     };
 
     updateScroll();
     container.addEventListener("scroll", updateScroll, { passive: true });
     return () => {
       container.removeEventListener("scroll", updateScroll);
+      if (scrollRafIdRef.current !== null) {
+        cancelAnimationFrame(scrollRafIdRef.current);
+      }
     };
-  }, [viewportRef]);
+  }, [viewportRef, pageCanvasRef]);
 
   const canvasPages = useMemo(() => {
     return page?.canvasData?.metadata?.pages ?? DEFAULT_CANVAS_PAGES;
