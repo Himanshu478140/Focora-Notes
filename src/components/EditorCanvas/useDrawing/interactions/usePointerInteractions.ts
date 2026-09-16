@@ -1,4 +1,4 @@
-import React, { useRef, useCallback } from "react";
+import React, { useRef, useCallback, useEffect } from "react";
 import { CanvasObject, DrawingStroke, CanvasTextBox } from "@/types/drawing";
 import { strokeBoundingBox, strokeSelected } from "@/utils/lasso";
 import {
@@ -61,7 +61,6 @@ interface UsePointerInteractionsOptions {
   viewportScrollRef?: React.MutableRefObject<import("../types").ViewportScrollState>;
   canvasScreenTopRef?: React.MutableRefObject<number>;
   canvasScreenLeftRef?: React.MutableRefObject<number>;
-  canvasContentOffsetRef?: React.MutableRefObject<number>;
 }
 
 export function usePointerInteractions({
@@ -110,7 +109,6 @@ export function usePointerInteractions({
   viewportScrollRef,
   canvasScreenTopRef,
   canvasScreenLeftRef,
-  canvasContentOffsetRef,
 }: UsePointerInteractionsOptions) {
   const pointerState = useRef<PointerState>({
     id: null,
@@ -126,6 +124,56 @@ export function usePointerInteractions({
   const lastExpandedHeightRef = useRef<number>(0);
   const isDraggingSelectionRef = useRef(false);
   const needsBakeRef = useRef<boolean>(false);
+
+  const eraserRafIdRef = useRef<number | null>(null);
+  const lastErasedIndexRef = useRef<number>(0);
+  const eraserDidModifyRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    return () => {
+      if (eraserRafIdRef.current !== null) {
+        cancelAnimationFrame(eraserRafIdRef.current);
+        eraserRafIdRef.current = null;
+      }
+    };
+  }, []);
+
+  const processEraserPoints = useCallback(() => {
+    if (!activeDrawingsRef.current) return;
+    const buf = pointerState.current.buffer;
+    const startIdx = lastErasedIndexRef.current;
+    if (buf.length > startIdx + 1) {
+      const iterStart = performance.now();
+      const countBefore = activeDrawingsRef.current.length;
+      let currentDrawings = activeDrawingsRef.current;
+      for (let idx = startIdx + 1; idx < buf.length; idx++) {
+        const pPrev = buf[idx - 1];
+        const pCurr = buf[idx];
+        currentDrawings = currentDrawings.flatMap((d): CanvasObject[] => {
+          if (d.type === "textbox") return [d];
+          const stroke = d as DrawingStroke;
+          const res = erasePointsFromStroke(stroke, pPrev.x, pPrev.y, pCurr.x, pCurr.y, 24);
+          if (!eraserDidModifyRef.current && (res.length !== 1 || res[0] !== stroke)) {
+            eraserDidModifyRef.current = true;
+          }
+          return res;
+        });
+      }
+      activeDrawingsRef.current = currentDrawings;
+      lastErasedIndexRef.current = buf.length - 1;
+      const iterDuration = performance.now() - iterStart;
+      if ((window as any).__strokeDebugLog) {
+        (window as any).__strokeDebugLog.push({
+          event: "iteration",
+          type: "eraser",
+          ts: Number(iterStart.toFixed(2)),
+          duration: Number(iterDuration.toFixed(3)),
+          strokeCount: countBefore,
+        });
+      }
+      redrawPageCanvas();
+    }
+  }, [redrawPageCanvas]);
 
   if (typeof window !== "undefined") {
     (window as any).dumpDragLog = () => (window as any).__dragLog || [];
@@ -200,8 +248,6 @@ export function usePointerInteractions({
       canvas,
       zoom,
       viewportScrollRef?.current,
-      0,
-      0,
       canvasScreenTopRef?.current,
       canvasScreenLeftRef?.current
     );
@@ -460,6 +506,12 @@ export function usePointerInteractions({
           redrawPageCanvas();
         }
       } else if (activeTool === "eraser") {
+        if (eraserRafIdRef.current !== null) {
+          cancelAnimationFrame(eraserRafIdRef.current);
+          eraserRafIdRef.current = null;
+        }
+        lastErasedIndexRef.current = 0;
+        eraserDidModifyRef.current = false;
         const currentDrawings = drawings ?? [];
         drawingsBeforeGestureRef.current = currentDrawings;
         setUndoStack((prev) => [...prev, currentDrawings]);
@@ -468,7 +520,12 @@ export function usePointerInteractions({
         if (isCommitted) {
           activeDrawingsRef.current = activeDrawingsRef.current.flatMap((d): CanvasObject[] => {
             if (d.type === "textbox") return [d];
-            return erasePointsFromStroke(d as DrawingStroke, x, y, x, y, 24);
+            const stroke = d as DrawingStroke;
+            const res = erasePointsFromStroke(stroke, x, y, x, y, 24);
+            if (res.length !== 1 || res[0] !== stroke) {
+              eraserDidModifyRef.current = true;
+            }
+            return res;
           });
           redrawPageCanvas();
         }
@@ -535,8 +592,6 @@ export function usePointerInteractions({
       rect,
       zoom,
       viewportScrollRef?.current,
-      0,
-      0,
       canvasScreenTopRef?.current,
       canvasScreenLeftRef?.current
     );
@@ -930,28 +985,11 @@ export function usePointerInteractions({
             redrawPageCanvas();
           }
         } else if (activeTool === "eraser") {
-          if (activeDrawingsRef.current) {
-            const iterStart = performance.now();
-            const countBefore = activeDrawingsRef.current.length;
-            for (let idx = 1; idx < s.buffer.length; idx++) {
-              const pPrev = s.buffer[idx - 1];
-              const pCurr = s.buffer[idx];
-              activeDrawingsRef.current = activeDrawingsRef.current.flatMap((d): CanvasObject[] => {
-                if (d.type === "textbox") return [d];
-                return erasePointsFromStroke(d as DrawingStroke, pPrev.x, pPrev.y, pCurr.x, pCurr.y, 24);
-              });
-            }
-            const iterDuration = performance.now() - iterStart;
-            if ((window as any).__strokeDebugLog) {
-              (window as any).__strokeDebugLog.push({
-                event: "iteration",
-                type: "eraser",
-                ts: Number(iterStart.toFixed(2)),
-                duration: Number(iterDuration.toFixed(3)),
-                strokeCount: countBefore,
-              });
-            }
-            redrawPageCanvas();
+          if (eraserRafIdRef.current === null) {
+            eraserRafIdRef.current = requestAnimationFrame(() => {
+              eraserRafIdRef.current = null;
+              processEraserPoints();
+            });
           }
         }
       }
@@ -983,13 +1021,11 @@ export function usePointerInteractions({
           redrawPageCanvas();
         }
       } else if (activeTool === "eraser") {
-        const prevPt = s.buffer[s.buffer.length - 2];
-        if (prevPt && activeDrawingsRef.current) {
-          activeDrawingsRef.current = activeDrawingsRef.current.flatMap((d): CanvasObject[] => {
-            if (d.type === "textbox") return [d];
-            return erasePointsFromStroke(d as DrawingStroke, prevPt.x, prevPt.y, x, y, 24);
+        if (eraserRafIdRef.current === null) {
+          eraserRafIdRef.current = requestAnimationFrame(() => {
+            eraserRafIdRef.current = null;
+            processEraserPoints();
           });
-          redrawPageCanvas();
         }
       }
     }
@@ -1035,14 +1071,29 @@ export function usePointerInteractions({
           rect,
           zoom,
           viewportScrollRef?.current,
-          0,
-          0,
           canvasScreenTopRef?.current,
           canvasScreenLeftRef?.current
         )
       : { x: 0, y: 0 };
 
-    if (activeDrawingsRef.current) {
+    if (eraserRafIdRef.current !== null) {
+      cancelAnimationFrame(eraserRafIdRef.current);
+      eraserRafIdRef.current = null;
+    }
+    if (drawModeActive && drawTool === "eraser") {
+      if (eraserRafIdRef.current === null) {
+        eraserRafIdRef.current = requestAnimationFrame(() => {
+          eraserRafIdRef.current = null;
+          processEraserPoints();
+          if (activeDrawingsRef.current) {
+            if (eraserDidModifyRef.current) {
+              onUpdateDrawings(activeDrawingsRef.current);
+            }
+            activeDrawingsRef.current = null;
+          }
+        });
+      }
+    } else if (activeDrawingsRef.current) {
       const changed = JSON.stringify(activeDrawingsRef.current) !== JSON.stringify(drawingsBeforeGestureRef.current);
       if (changed) {
         onUpdateDrawings(activeDrawingsRef.current);

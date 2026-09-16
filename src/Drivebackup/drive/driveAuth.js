@@ -220,7 +220,6 @@ async function getAccessToken() {
   // Refresh token if it is expired or close to expiring (within 5 minutes)
   const bufferTime = 5 * 60 * 1000;
   if (Date.now() + bufferTime >= authState.expiryTime) {
-    console.log('focora/driveAuth: Access token is expired or expiring soon, refreshing...');
     return refreshAccessToken();
   }
 
@@ -229,14 +228,12 @@ async function getAccessToken() {
 
 // Start the Loopback OAuth Server Flow on port 0
 function startOAuthFlow() {
-  console.log('[focora/driveAuth] Starting Google OAuth authentication flow...');
   return new Promise((resolve, reject) => {
     let server;
     let timeoutId;
     let redirectUri = '';
 
     const cleanup = () => {
-      console.log('[focora/driveAuth] Cleaning up local OAuth callback server...');
       if (server) {
         server.close();
       }
@@ -247,7 +244,6 @@ function startOAuthFlow() {
 
     server = http.createServer(async (req, res) => {
       const urlObj = new URL(req.url, `http://${req.headers.host}`);
-      console.log(`[focora/driveAuth] HTTP request received on callback server: ${urlObj.pathname}${urlObj.search}`);
 
       // Ignore favicon.ico browser requests
       if (urlObj.pathname === '/favicon.ico') {
@@ -260,7 +256,6 @@ function startOAuthFlow() {
       const error = urlObj.searchParams.get('error');
 
       if (code) {
-        console.log('[focora/driveAuth] Authorization code received from Google callback.');
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(`
           <html>
@@ -283,14 +278,10 @@ function startOAuthFlow() {
         `);
 
         try {
-          console.log(`[focora/driveAuth] Exchanging authorization code for tokens (redirect_uri: ${redirectUri})...`);
           const tokens = await exchangeCodeForTokens(code, redirectUri);
-          console.log('[focora/driveAuth] Tokens acquired. Fetching user profile email...');
           const email = await getUserProfile(tokens.access_token);
           tokens.email = email;
-          console.log(`[focora/driveAuth] Encrypting and saving credentials for user: ${email}...`);
           saveCredentials(tokens);
-          console.log('[focora/driveAuth] OAuth connection flow completed successfully!');
           cleanup();
           resolve(email);
         } catch (err) {
@@ -317,7 +308,6 @@ function startOAuthFlow() {
     server.listen(0, '127.0.0.1', () => {
       const port = server.address().port;
       redirectUri = `http://127.0.0.1:${port}`;
-      console.log(`[focora/driveAuth] Local callback server listening at ${redirectUri}`);
       
       const scopes = [
         'https://www.googleapis.com/auth/drive.file',
@@ -332,7 +322,6 @@ function startOAuthFlow() {
         `access_type=offline&` +
         `prompt=consent`;
 
-      console.log(`[focora/driveAuth] Opening browser for Google authentication...`);
       shell.openExternal(oauthUrl).catch((err) => {
         console.error('[focora/driveAuth] Failed to open external browser:', err);
         cleanup();

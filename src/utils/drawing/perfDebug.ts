@@ -1,14 +1,12 @@
 "use client";
 
 // Gating flag: single module-level flag to toggle all performance debug instrumentation
-export const PERF_DEBUG = true;
+export const PERF_DEBUG = false;
 
 const RING_BUFFER_SIZE = 600;
 
 interface StageMetrics {
   pointerEntryToStash: number[];
-  pointerEntryToOverlay: number[];
-  rafStartToOverlay: number[];
   visibleFilter: number[];
   activeStrokeDraw: number[];
   fullRedraw: number[];
@@ -16,8 +14,6 @@ interface StageMetrics {
 
 const metrics: StageMetrics = {
   pointerEntryToStash: [],
-  pointerEntryToOverlay: [],
-  rafStartToOverlay: [],
   visibleFilter: [],
   activeStrokeDraw: [],
   fullRedraw: [],
@@ -56,17 +52,6 @@ export function recordCoordStashed() {
   if (!PERF_DEBUG || typeof window === "undefined" || lastPointerEntryTime === 0) return;
   const dur = performance.now() - lastPointerEntryTime;
   pushMetric(metrics.pointerEntryToStash, dur);
-}
-
-export function recordPenOverlayWritten() {
-  if (!PERF_DEBUG || typeof window === "undefined") return;
-  const now = performance.now();
-  if (lastPointerEntryTime > 0) {
-    pushMetric(metrics.pointerEntryToOverlay, now - lastPointerEntryTime);
-  }
-  if (lastRafStartTime > 0) {
-    pushMetric(metrics.rafStartToOverlay, now - lastRafStartTime);
-  }
 }
 
 export function recordRafStart() {
@@ -108,8 +93,6 @@ export function recordFullRedrawEnd() {
 function getSummaryTableData() {
   const stages = [
     { name: "Pointer Entry -> Coord Stash", data: metrics.pointerEntryToStash },
-    { name: "Pointer Entry -> Pen Overlay Write", data: metrics.pointerEntryToOverlay },
-    { name: "rAF Start -> Pen Overlay Write", data: metrics.rafStartToOverlay },
     { name: "Visible-Stroke Filter (Start -> End)", data: metrics.visibleFilter },
     { name: "Active-Stroke Draw (Start -> End)", data: metrics.activeStrokeDraw },
     { name: "Full Redraw (rAF Start -> End)", data: metrics.fullRedraw },
@@ -128,8 +111,6 @@ function getSummaryTableData() {
 
 function dumpPerf() {
   const tableData = getSummaryTableData();
-  console.log("=== [DRAW PERF DUMP] Last ~600 frames ===");
-  console.table(tableData);
   return tableData;
 }
 

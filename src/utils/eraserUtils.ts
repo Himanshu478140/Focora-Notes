@@ -1,4 +1,5 @@
 import { type DrawingStroke } from "@/data/mock";
+import { getStrokeYBounds } from "@/components/EditorCanvas/useDrawing/rendering/useCanvasRenderer";
 
 /**
  * Checks if a point (px, py) lies within a square eraser of size (2 * halfSize)
@@ -95,6 +96,15 @@ export function erasePointsFromStroke(
   ey_curr: number,
   eraserSize: number
 ): DrawingStroke[] {
+  const half = eraserSize / 2;
+  const eraserMinY = Math.min(ey_prev, ey_curr) - half;
+  const eraserMaxY = Math.max(ey_prev, ey_curr) + half;
+
+  const bounds = getStrokeYBounds(stroke);
+  if (bounds.maxY < eraserMinY || bounds.minY > eraserMaxY) {
+    return [stroke];
+  }
+
   // If it's a geometric shape (non-pen tool), convert it to points first
   if (stroke.tool && stroke.tool !== "pen" && stroke.tool !== "highlighter" && stroke.tool !== "plain-path") {
     // Convert the shape to a point-based path
@@ -103,7 +113,6 @@ export function erasePointsFromStroke(
     if (shapePoints.length === 0) return [stroke];
 
     // Check if any points would be erased
-    const half = eraserSize / 2;
     const keepFlags = shapePoints.map((p) => {
       const erased = pointNearSegment(p.x, p.y, ex_prev, ey_prev, ex_curr, ey_curr, half);
       return !erased;
@@ -142,7 +151,6 @@ export function erasePointsFromStroke(
   }
 
   // Original point erasure logic for pen/highlighter strokes
-  const half = eraserSize / 2;
   const absPoints = stroke.points.map((p) => ({
     x: stroke.x + p.dx,
     y: stroke.y + p.dy,
@@ -228,6 +236,15 @@ export function erasePointsFromLocalShape(
   ey_curr: number,
   eraserSize: number
 ): any[] {
+  const half = eraserSize / 2;
+  const eraserMinY = Math.min(ey_prev, ey_curr) - half;
+  const eraserMaxY = Math.max(ey_prev, ey_curr) + half;
+
+  const bounds = getStrokeYBounds(shape);
+  if (bounds.maxY < eraserMinY || bounds.minY > eraserMaxY) {
+    return [shape];
+  }
+
   // For geometric shapes (non-pen), convert to sampled points and do point-level erasing
   if (shape.tool !== "pen" && shape.tool !== "plain-path") {
     const start = shape.start || shape.points?.[0];
@@ -238,7 +255,6 @@ export function erasePointsFromLocalShape(
     const sampledPoints = localShapeToPoints(shape, start, end);
     if (sampledPoints.length === 0) return [shape];
 
-    const half = eraserSize / 2;
     const keepFlags = sampledPoints.map((p: any) => {
       const erased = pointNearSegment(p.x, p.y, ex_prev, ey_prev, ex_curr, ey_curr, half);
       return !erased;
@@ -290,7 +306,6 @@ export function erasePointsFromLocalShape(
 
   // Freehand pen paths — point-level erasing
   const points = shape.points || [];
-  const half = eraserSize / 2;
 
   const keepFlags = points.map((p: any) => {
     const erased = pointNearSegment(p.x, p.y, ex_prev, ey_prev, ex_curr, ey_curr, half);

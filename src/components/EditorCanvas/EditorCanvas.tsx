@@ -32,7 +32,6 @@ import CanvasOverlays from "./overlays/CanvasOverlays";
 import WorkspaceViewport from "./components/WorkspaceViewport";
 import CanvasPageBackgrounds from "./components/CanvasPageBackgrounds";
 import SlashMenu from "./components/SlashMenu";
-import CursorOverlays from "./overlays/CursorOverlays";
 import HydrationOverlay from "./components/HydrationOverlay";
 // Import utilities
 import { getPageBgClass, getPagePatternClass } from "./utils/backgroundPattern";
@@ -194,7 +193,6 @@ export default function EditorCanvas() {
     pageCanvasRef,
     pageCanvasWrapperRef,
     pageEraserOverlayRef,
-    pagePenOverlayRef,
     drawModeActive,
     setDrawModeActive,
     drawColor,
@@ -377,6 +375,7 @@ export default function EditorCanvas() {
         <div className="flex-1 flex flex-row overflow-hidden relative min-h-0 min-w-0">
           <WorkspaceViewport
             pageCanvasRef={pageCanvasRef}
+            pageEraserOverlayRef={pageEraserOverlayRef}
             editorScrollContainerRef={editorScrollContainerRef}
             pageCanvasWrapperRef={pageCanvasWrapperRef}
             isFixedLayout={isFixedLayout}
@@ -397,12 +396,6 @@ export default function EditorCanvas() {
           >
             {/* Hydration / Loading overlay */}
             <HydrationOverlay show={isHydrating} />
-
-            {/* Custom cursors overlay */}
-            <CursorOverlays
-              pageEraserOverlayRef={pageEraserOverlayRef}
-              pagePenOverlayRef={pagePenOverlayRef}
-            />
 
             {/* Slash command menu overlay */}
             <SlashMenu

@@ -425,18 +425,8 @@ export const redrawCanvas = (
     ctx.restore();
   });
 
-  // [LassoDebug] logs and drawing loop
   if (lassoPath && lassoPath.length > 0) {
     const dpr = typeof window !== "undefined" ? (window.devicePixelRatio || 1) : 1;
-    console.log("[LassoDebug]", {
-      lassoPointsLength: lassoPath.length,
-      firstPoint: lassoPath[0],
-      latestPoint: lassoPath[lassoPath.length - 1],
-      renderCalled: true,
-      canvasWidth: canvas.width,
-      canvasHeight: canvas.height,
-      dpr,
-    });
 
     if (lassoPath.length > 1) {
       ctx.save();

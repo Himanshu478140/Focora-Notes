@@ -66,17 +66,6 @@ export function useCanvasResize(props: UseCanvasResizeProps) {
     if (canvas.width !== nextWidth || canvas.height !== nextHeight) {
       canvas.width = nextWidth;
       canvas.height = nextHeight;
-
-      // Diagnostics — remove after verification
-      const memoryMB = ((nextWidth * nextHeight * 4) / (1024 * 1024)).toFixed(1);
-      console.log("[CanvasBackingStore]", {
-        renderScale,
-        dpr,
-        combinedScale: scale,
-        backingWidth: nextWidth,
-        backingHeight: nextHeight,
-        estimatedRGBA_MB: memoryMB,
-      });
     }
 
     // Setting canvas.width/height resets the context — reapply transform

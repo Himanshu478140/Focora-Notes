@@ -30,7 +30,6 @@ export function useDrawing({
   const pageCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const pageCanvasWrapperRef = useRef<HTMLDivElement | null>(null);
   const pageEraserOverlayRef = useRef<HTMLDivElement | null>(null);
-  const pagePenOverlayRef = useRef<HTMLDivElement | null>(null);
   const copiedStrokesRef = useRef<any[]>([]);
 
   const viewportScrollRef = useRef<ViewportScrollState>({
@@ -42,13 +41,16 @@ export function useDrawing({
 
   const canvasScreenTopRef = useRef<number>(0);
   const canvasScreenLeftRef = useRef<number>(0);
-  const canvasContentOffsetRef = useRef<number>(0);
   const redrawRef = useRef<(() => void) | null>(null);
   const scrollRafIdRef = useRef<number | null>(null);
+  const scrollListenerAttachedRef = useRef<boolean>(false);
+  const scrollCleanupRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const container = viewportRef.current;
-    if (!container) return;
+    if (!container || scrollListenerAttachedRef.current) return;
+
+    scrollListenerAttachedRef.current = true;
 
     const updateScroll = () => {
       const scrollTop = container.scrollTop;
@@ -76,13 +78,23 @@ export function useDrawing({
 
     updateScroll();
     container.addEventListener("scroll", updateScroll, { passive: true });
-    return () => {
+
+    scrollCleanupRef.current = () => {
       container.removeEventListener("scroll", updateScroll);
       if (scrollRafIdRef.current !== null) {
         cancelAnimationFrame(scrollRafIdRef.current);
+        scrollRafIdRef.current = null;
       }
+      scrollListenerAttachedRef.current = false;
     };
-  }, [viewportRef]);
+  });
+
+  useEffect(() => {
+    return () => {
+      scrollCleanupRef.current?.();
+      scrollCleanupRef.current = null;
+    };
+  }, []);
 
   const canvasPages = useMemo(() => {
     return page?.canvasData?.metadata?.pages ?? DEFAULT_CANVAS_PAGES;
@@ -254,7 +266,6 @@ export function useDrawing({
     viewportScrollRef,
     canvasScreenTopRef,
     canvasScreenLeftRef,
-    canvasContentOffsetRef,
   });
 
   // 7. Renderer
@@ -282,7 +293,6 @@ export function useDrawing({
     pointerStateRef: pointer.pointerState,
     needsBakeRef: pointer.needsBakeRef,
     viewportScrollRef,
-    canvasContentOffsetRef,
   });
 
   useEffect(() => {
@@ -294,7 +304,6 @@ export function useDrawing({
     pageCanvasRef,
     pageCanvasWrapperRef,
     pageEraserOverlayRef,
-    pagePenOverlayRef,
     handlePagePointerDown: pointer.handlePagePointerDown,
     handlePagePointerMove: pointer.handlePagePointerMove,
     handlePagePointerUp: pointer.handlePagePointerUp,
@@ -324,7 +333,6 @@ export function useDrawing({
     pageCanvasRef,
     pageCanvasWrapperRef,
     pageEraserOverlayRef,
-    pagePenOverlayRef,
     drawModeActive: toolState.drawModeActive,
     setDrawModeActive: toolState.setDrawModeActive,
     drawColor: toolState.drawColor,

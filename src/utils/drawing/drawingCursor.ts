@@ -45,11 +45,7 @@ export function computeCursorStyle(
     return getEraserCursor();
   }
   if (drawTool === "pen" || drawTool === "highlighter") {
-    if (lastPointerType === "pen") {
-      return "none";
-    } else {
-      return getPenCursor(drawColor);
-    }
+    return getPenCursor(drawColor);
   }
 
   if (drawTool === "lasso" || ["line", "arrow", "elbowConnector", "curvedConnector", "rectangle", "circle", "triangle", "diamond", "ellipse"].includes(drawTool)) {

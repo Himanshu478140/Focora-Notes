@@ -170,7 +170,6 @@ export async function garbageCollectImages() {
   // 3. Delete orphans
   const orphans = imageKeys.filter((key) => !inUseIds.has(key));
   if (orphans.length > 0) {
-    console.log(`focora/gc: Found ${orphans.length} orphaned images. Purging...`, orphans);
     const tx = db.transaction(STORES.IMAGES, "readwrite");
     const store = tx.objectStore(STORES.IMAGES);
     orphans.forEach((key) => store.delete(key));

@@ -1,13 +1,12 @@
 import React, { useRef, useEffect } from "react";
 import { shouldBypassDrawing } from "../types";
 import { clientToWorld } from "@/hooks/useNativeCanvasViewport";
-import { PERF_DEBUG, recordPointerEntry, recordPenOverlayWritten } from "@/utils/drawing/perfDebug";
+import { PERF_DEBUG, recordPointerEntry } from "@/utils/drawing/perfDebug";
 
 interface UseCanvasEventsOptions {
   pageCanvasRef: React.RefObject<HTMLCanvasElement | null>;
   pageCanvasWrapperRef: React.RefObject<HTMLDivElement | null>;
   pageEraserOverlayRef: React.RefObject<HTMLDivElement | null>;
-  pagePenOverlayRef: React.RefObject<HTMLDivElement | null>;
   handlePagePointerDown: (e: PointerEvent) => void;
   handlePagePointerMove: (e: PointerEvent) => void;
   handlePagePointerUp: (e: PointerEvent) => void;
@@ -23,7 +22,6 @@ export function useCanvasEvents({
   pageCanvasRef,
   pageCanvasWrapperRef,
   pageEraserOverlayRef,
-  pagePenOverlayRef,
   handlePagePointerDown,
   handlePagePointerMove,
   handlePagePointerUp,
@@ -109,16 +107,6 @@ export function useCanvasEvents({
       handlers.updateCursorStyle(e);
       handlers.handlePagePointerMove(e);
 
-      // Verification log for pen events (throttled to avoid spamming)
-      if (e.pointerType === "pen" && Math.random() < 0.05) {
-        const canvas = pageCanvasRef.current;
-        if (canvas) {
-          const canvasRect = canvas.getBoundingClientRect();
-          const { x: wX, y: wY } = clientToWorld(e.clientX, e.clientY, canvasRect, zoom);
-          console.log(`[DEBUG VERIFY PEN] clientX: ${e.clientX} | clientY: ${e.clientY} | canvasRect.left: ${canvasRect.left.toFixed(2)} | canvasRect.top: ${canvasRect.top.toFixed(2)} | zoom: ${zoom} | worldX: ${wX.toFixed(2)} | worldY: ${wY.toFixed(2)}`);
-        }
-      }
-
       if (pageEraserOverlayRef.current) {
         if (handlers.drawModeActive && handlers.drawTool === "eraser") {
           pageEraserOverlayRef.current.style.display = "block";
@@ -126,28 +114,6 @@ export function useCanvasEvents({
           pageEraserOverlayRef.current.style.top = `${e.clientY}` + "px";
         } else {
           pageEraserOverlayRef.current.style.display = "none";
-        }
-      }
-
-      if (pagePenOverlayRef.current) {
-        if (
-          handlers.drawModeActive &&
-          (handlers.drawTool === "pen" || handlers.drawTool === "highlighter") &&
-          e.pointerType === "pen"
-        ) {
-          pagePenOverlayRef.current.style.display = "block";
-          pagePenOverlayRef.current.style.left = `${e.clientX - 2}px`;
-          pagePenOverlayRef.current.style.top = `${e.clientY - 22}px`;
-          const fillPath = pagePenOverlayRef.current.querySelector("#page-pen-overlay-fill");
-          if (fillPath) {
-            fillPath.setAttribute("stroke", handlers.drawColor);
-            fillPath.setAttribute("fill", handlers.drawColor);
-          }
-          if (PERF_DEBUG) {
-            recordPenOverlayWritten();
-          }
-        } else {
-          pagePenOverlayRef.current.style.display = "none";
         }
       }
     };
@@ -182,9 +148,6 @@ export function useCanvasEvents({
       }
       if (pageEraserOverlayRef.current) {
         pageEraserOverlayRef.current.style.display = "none";
-      }
-      if (pagePenOverlayRef.current) {
-        pagePenOverlayRef.current.style.display = "none";
       }
     };
 
@@ -223,7 +186,7 @@ export function useCanvasEvents({
       wrapper.removeEventListener("contextmenu", onContextMenu, { capture: true });
       wrapper.style.touchAction = "";
     };
-  }, [activePageId, pageCanvasRef, pageCanvasWrapperRef, pageEraserOverlayRef, pagePenOverlayRef, zoom]);
+  }, [activePageId, pageCanvasRef, pageCanvasWrapperRef, pageEraserOverlayRef, zoom]);
 
   return {
     lastPointerTypeRef,

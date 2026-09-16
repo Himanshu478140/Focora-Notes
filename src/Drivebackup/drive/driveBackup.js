@@ -98,13 +98,11 @@ async function deleteFile(fileId) {
 async function getOrCreateAppFolders() {
   let rootFolder = await findFileByProperty('type', 'root');
   if (!rootFolder) {
-    console.log('focora/driveBackup: Creating root folder Focora...');
     rootFolder = await createFolder('Focora', null, { type: 'root' });
   }
 
   let imagesFolder = await findFileByProperty('type', 'images-dir');
   if (!imagesFolder) {
-    console.log('focora/driveBackup: Creating images folder...');
     imagesFolder = await createFolder('images', rootFolder.id, { type: 'images-dir' });
   }
 
@@ -204,7 +202,6 @@ async function uploadImagesChunk(chunk, imagesFolderId, currentCount, totalCount
     if (existingFile) {
       // If the MD5 matches Google's md5Checksum, skip upload
       if (existingFile.md5Checksum === localMd5) {
-        console.log(`focora/driveBackup: Image ${img.id} checksum matches, skipping upload.`);
         continue;
       }
       // Otherwise, overwrite it

@@ -16,6 +16,54 @@ import {
   recordFullRedrawEnd,
 } from "@/utils/drawing/perfDebug";
 
+const strokeYBoundsCache = new WeakMap<object, { minY: number; maxY: number }>();
+
+export function getStrokeYBounds(s: any): { minY: number; maxY: number } {
+  let cached = strokeYBoundsCache.get(s);
+  if (cached) return cached;
+
+  let minY = s.y;
+  let maxY = s.y;
+
+  if (s.bounds) {
+    minY = s.bounds.minY;
+    maxY = s.bounds.maxY;
+  } else if (Array.isArray(s.points) && s.points.length > 0) {
+    const startY = s.y;
+    const tool = s.tool || "pen";
+    const isGeometric = tool !== "pen" && tool !== "highlighter" && tool !== "plain-path";
+
+    if (isGeometric) {
+      const endY = startY + (s.points[0].dy || 0);
+      if (tool === "circle") {
+        const startX = s.x;
+        const endX = startX + (s.points[0].dx || 0);
+        const r = Math.hypot(endX - startX, endY - startY);
+        minY = startY - r;
+        maxY = startY + r;
+      } else {
+        minY = Math.min(startY, endY);
+        maxY = Math.max(startY, endY);
+      }
+    } else {
+      let minPtY = Infinity;
+      let maxPtY = -Infinity;
+      for (let i = 0; i < s.points.length; i++) {
+        const py = startY + (s.points[i].dy ?? 0);
+        if (py < minPtY) minPtY = py;
+        if (py > maxPtY) maxPtY = py;
+      }
+      minY = minPtY;
+      maxY = maxPtY;
+    }
+  }
+
+  const pad = (s.width ? s.width / 2 : 2) + 20;
+  cached = { minY: minY - pad, maxY: maxY + pad };
+  strokeYBoundsCache.set(s, cached);
+  return cached;
+}
+
 interface UseCanvasRendererOptions {
   pageCanvasRef: React.RefObject<HTMLCanvasElement | null>;
   pageCanvasWrapperRef: React.RefObject<HTMLDivElement | null>;
@@ -40,7 +88,6 @@ interface UseCanvasRendererOptions {
   pointerStateRef?: React.MutableRefObject<PointerState>;
   needsBakeRef?: React.MutableRefObject<boolean>;
   viewportScrollRef?: React.MutableRefObject<import("../types").ViewportScrollState>;
-  canvasContentOffsetRef?: React.MutableRefObject<number>;
 }
 
 export function useCanvasRenderer({
@@ -67,7 +114,6 @@ export function useCanvasRenderer({
   pointerStateRef,
   needsBakeRef,
   viewportScrollRef,
-  canvasContentOffsetRef,
 }: UseCanvasRendererOptions) {
   const animationOffsetRef = useRef(0);
   const animationFrameIdRef = useRef<number | null>(null);
@@ -78,14 +124,16 @@ export function useCanvasRenderer({
     try {
       const canvas = pageCanvasRef.current;
       const wrapper = pageCanvasWrapperRef.current;
-      if (!canvas || !wrapper) return;
+      if (!canvas || !wrapper) {
+        return;
+      }
 
       const dpr = window.devicePixelRatio || 1;
       const viewportWidth = viewportScrollRef?.current?.viewportWidth || wrapper.clientWidth || (typeof window !== "undefined" ? window.innerWidth : 800);
       const viewportHeight = viewportScrollRef?.current?.viewportHeight || wrapper.clientHeight || (typeof window !== "undefined" ? window.innerHeight : 1000);
 
-      const targetWidth = Math.floor(viewportWidth * zoom * dpr);
-      const targetHeight = Math.floor(viewportHeight * zoom * dpr);
+      const targetWidth = Math.floor(viewportWidth * dpr);
+      const targetHeight = Math.floor(viewportHeight * dpr);
 
       if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
         canvas.width = targetWidth;
@@ -103,21 +151,22 @@ export function useCanvasRenderer({
 
       const scrollLeft = viewportScrollRef?.current?.scrollLeft || 0;
       const scrollTop = viewportScrollRef?.current?.scrollTop || 0;
-      ctx.setTransform(dpr * zoom, 0, 0, dpr * zoom, -scrollLeft * dpr * zoom, -scrollTop * dpr * zoom);
+      ctx.setTransform(dpr * zoom, 0, 0, dpr * zoom, -scrollLeft * dpr, -scrollTop * dpr);
 
       const drawingsList = activeDrawingsRef.current || (drawings ?? []);
 
       // Filter strokes visible within visible vertical window anchored on scrollTop
-      const visibleMinY = scrollTop - 100;
-      const visibleMaxY = scrollTop + (viewportHeight / zoom) + 100;
+      const visibleMinY = (scrollTop / zoom) - 100;
+      const visibleMaxY = (scrollTop / zoom) + (viewportHeight / zoom) + 100;
 
       if (PERF_DEBUG) recordFilterStart();
       const visibleStrokes = drawingsList.filter((s: any) => {
         if (s.type === "textbox") return false;
         const pageOffsetY = pageOffsets.get(s.pageId || "") || 0;
-        const strokeY = s.y + pageOffsetY;
-        const strokeMaxY = s.points ? strokeY + (s.height || 100) : strokeY;
-        return strokeMaxY >= visibleMinY && strokeY <= visibleMaxY;
+        const bounds = getStrokeYBounds(s);
+        const strokeMinY = bounds.minY + pageOffsetY;
+        const strokeMaxY = bounds.maxY + pageOffsetY;
+        return strokeMaxY >= visibleMinY && strokeMinY <= visibleMaxY;
       });
       if (PERF_DEBUG) recordFilterEnd();
 
@@ -306,7 +355,6 @@ export function useCanvasRenderer({
     zoom,
     pageOffsets,
     pointerStateBuffer,
-    canvasContentOffsetRef,
   ]);
 
   // Trigger Redraw when drawings change or selection shifts
