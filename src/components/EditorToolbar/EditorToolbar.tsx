@@ -101,7 +101,7 @@ function ToolbarDivider() {
   return <div className="h-5 w-px bg-gray-200 dark:bg-white/[0.1] mx-0.5 flex-shrink-0" />;
 }
 
-export default function EditorToolbar({
+function EditorToolbar({
   editor,
   drawModeActive,
   setDrawModeActive,
@@ -397,3 +397,5 @@ export default function EditorToolbar({
     </div>
   );
 }
+
+export default React.memo(EditorToolbar);

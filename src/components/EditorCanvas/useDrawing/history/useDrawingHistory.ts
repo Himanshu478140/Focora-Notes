@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { CanvasObject } from "@/types/drawing";
 
 interface UseDrawingHistoryOptions {
@@ -15,45 +15,68 @@ export function useDrawingHistory({
   const [undoStack, setUndoStack] = useState<CanvasObject[][]>([]);
   const [redoStack, setRedoStack] = useState<CanvasObject[][]>([]);
 
+  const drawingsRef = useRef(drawings);
+  const undoStackRef = useRef(undoStack);
+  const redoStackRef = useRef(redoStack);
+  const onUpdateDrawingsRef = useRef(onUpdateDrawings);
+
+  useEffect(() => {
+    drawingsRef.current = drawings;
+  }, [drawings]);
+
+  useEffect(() => {
+    undoStackRef.current = undoStack;
+  }, [undoStack]);
+
+  useEffect(() => {
+    redoStackRef.current = redoStack;
+  }, [redoStack]);
+
+  useEffect(() => {
+    onUpdateDrawingsRef.current = onUpdateDrawings;
+  }, [onUpdateDrawings]);
+
   const saveHistory = useCallback((prevDrawings: CanvasObject[]) => {
     setUndoStack((prev) => [...prev, prevDrawings]);
     setRedoStack([]);
   }, []);
 
   const handleUndoDraw = useCallback(() => {
-    const currentDrawings = drawings ?? [];
-    if (undoStack.length === 0) return;
+    const currentDrawings = drawingsRef.current ?? [];
+    const currentUndoStack = undoStackRef.current;
+    if (currentUndoStack.length === 0) return;
 
-    const prevDrawings = undoStack[undoStack.length - 1];
-    const newUndoStack = undoStack.slice(0, -1);
+    const prevDrawings = currentUndoStack[currentUndoStack.length - 1];
+    const newUndoStack = currentUndoStack.slice(0, -1);
 
     setUndoStack(newUndoStack);
     setRedoStack((prev) => [...prev, currentDrawings]);
-    onUpdateDrawings(prevDrawings);
+    onUpdateDrawingsRef.current(prevDrawings);
     setSelectedStrokeIds(new Set());
-  }, [drawings, undoStack, onUpdateDrawings, setSelectedStrokeIds]);
+  }, [setSelectedStrokeIds]);
 
   const handleRedoDraw = useCallback(() => {
-    const currentDrawings = drawings ?? [];
-    if (redoStack.length === 0) return;
+    const currentDrawings = drawingsRef.current ?? [];
+    const currentRedoStack = redoStackRef.current;
+    if (currentRedoStack.length === 0) return;
 
-    const nextDrawings = redoStack[redoStack.length - 1];
-    const newRedoStack = redoStack.slice(0, -1);
+    const nextDrawings = currentRedoStack[currentRedoStack.length - 1];
+    const newRedoStack = currentRedoStack.slice(0, -1);
 
     setRedoStack(newRedoStack);
     setUndoStack((prev) => [...prev, currentDrawings]);
-    onUpdateDrawings(nextDrawings);
+    onUpdateDrawingsRef.current(nextDrawings);
     setSelectedStrokeIds(new Set());
-  }, [drawings, redoStack, onUpdateDrawings, setSelectedStrokeIds]);
+  }, [setSelectedStrokeIds]);
 
   const handleClearDraw = useCallback(() => {
-    const currentDrawings = drawings ?? [];
+    const currentDrawings = drawingsRef.current ?? [];
     if (currentDrawings.length === 0) return;
 
     saveHistory(currentDrawings);
-    onUpdateDrawings([]);
+    onUpdateDrawingsRef.current([]);
     setSelectedStrokeIds(new Set());
-  }, [drawings, saveHistory, onUpdateDrawings, setSelectedStrokeIds]);
+  }, [saveHistory, setSelectedStrokeIds]);
 
   return {
     undoStack,

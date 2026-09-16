@@ -66,7 +66,7 @@ function ToolbarDivider() {
   return <div className="h-5 w-px bg-gray-200 dark:bg-white/[0.1] mx-0.5 flex-shrink-0" />;
 }
 
-export function TextToolbar({ editor, setLinkUrl, setShowLinkModal }: TextToolbarProps) {
+function TextToolbarInner({ editor, setLinkUrl, setShowLinkModal }: TextToolbarProps) {
   const iconSize = 15;
   const { activePageId, editorFontScale, changeEditorFontScale } = useApp();
 
@@ -422,4 +422,6 @@ export function TextToolbar({ editor, setLinkUrl, setShowLinkModal }: TextToolba
     </div>
   );
 }
+
+export const TextToolbar = React.memo(TextToolbarInner);
 export default TextToolbar;

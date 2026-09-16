@@ -116,7 +116,7 @@ function ColorCommitListener({ color, onCommit }: { color: string; onCommit: (co
   return null;
 }
 
-export function DrawingToolbar({
+function DrawingToolbarInner({
   drawColor,
   setDrawColor,
   drawWidth,
@@ -588,4 +588,6 @@ export function DrawingToolbar({
     </div>
   );
 }
+
+export const DrawingToolbar = React.memo(DrawingToolbarInner);
 export default DrawingToolbar;
