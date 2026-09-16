@@ -235,13 +235,13 @@ export function clientToWorld(
 
   if (viewportScroll && worldElement instanceof HTMLElement && worldElement.id === "editor-scroll-container") {
     return {
-      x: (clientX - screenLeft + viewportScroll.scrollLeft) / zoom + canvasContentOffsetX,
-      y: (clientY - screenTop + viewportScroll.scrollTop) / zoom + canvasContentOffsetY,
+      x: (clientX - screenLeft + viewportScroll.scrollLeft) / zoom,
+      y: (clientY - screenTop + viewportScroll.scrollTop) / zoom,
     };
   }
 
   return {
-    x: (clientX - screenLeft) / zoom + canvasContentOffsetX,
-    y: (clientY - screenTop) / zoom + canvasContentOffsetY,
+    x: (clientX - screenLeft) / zoom,
+    y: (clientY - screenTop) / zoom,
   };
 }

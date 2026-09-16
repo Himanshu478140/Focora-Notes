@@ -82,8 +82,7 @@ export function useCanvasRenderer({
 
       const dpr = window.devicePixelRatio || 1;
       const viewportHeight = viewportScrollRef?.current?.viewportHeight || (typeof window !== "undefined" ? window.innerHeight : 1000);
-      const CANVAS_BUFFER = 600;
-      const cappedCssHeight = Math.min(wrapper.clientHeight, Math.max(800, viewportHeight + CANVAS_BUFFER));
+      const cappedCssHeight = Math.min(wrapper.clientHeight, Math.max(800, viewportHeight));
 
       const targetWidth = Math.floor(wrapper.clientWidth * zoom * dpr);
       const targetHeight = Math.floor(cappedCssHeight * zoom * dpr);
@@ -102,14 +101,15 @@ export function useCanvasRenderer({
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      ctx.setTransform(dpr * zoom, 0, 0, dpr * zoom, 0, 0);
+      const scrollLeft = viewportScrollRef?.current?.scrollLeft || 0;
+      const scrollTop = viewportScrollRef?.current?.scrollTop || 0;
+      ctx.setTransform(dpr * zoom, 0, 0, dpr * zoom, -scrollLeft * dpr * zoom, -scrollTop * dpr * zoom);
 
-      const contentOffsetY = canvasContentOffsetRef?.current || 0;
       const drawingsList = activeDrawingsRef.current || (drawings ?? []);
 
-      // Filter strokes visible within visible vertical window
-      const visibleMinY = contentOffsetY - 300;
-      const visibleMaxY = contentOffsetY + cappedCssHeight + 300;
+      // Filter strokes visible within visible vertical window anchored on scrollTop
+      const visibleMinY = scrollTop - 100;
+      const visibleMaxY = scrollTop + (viewportHeight / zoom) + 100;
 
       if (PERF_DEBUG) recordFilterStart();
       const visibleStrokes = drawingsList.filter((s: any) => {
@@ -125,26 +125,26 @@ export function useCanvasRenderer({
       visibleStrokes.forEach((stroke: any) => {
         if (selectedStrokeIds.has(stroke.id)) {
           const pageOffsetY = pageOffsets.get(stroke.pageId || "") || 0;
-          const dy = dragDy + pageOffsetY - contentOffsetY;
+          const dy = dragDy + pageOffsetY;
           drawStrokePath(ctx, stroke as DrawingStroke, dragDx, dy, "rgba(124, 92, 252, 0.25)", 6);
         }
       });
 
-      // 2. Draw all visible strokes normally (subtracting contentOffsetY)
+      // 2. Draw all visible strokes normally
       visibleStrokes.forEach((stroke: any) => {
         const isSel = selectedStrokeIds.has(stroke.id);
         const pageOffsetY = pageOffsets.get(stroke.pageId || "") || 0;
         const dx = isSel ? dragDx : 0;
-        const dy = (isSel ? dragDy : 0) + pageOffsetY - contentOffsetY;
+        const dy = (isSel ? dragDy : 0) + pageOffsetY;
         drawStrokePath(ctx, stroke as DrawingStroke, dx, dy);
       });
 
       // 3. Draw active lasso polygon path
       if (lassoPath.length > 1) {
         ctx.beginPath();
-        ctx.moveTo(lassoPath[0].x, lassoPath[0].y - contentOffsetY);
+        ctx.moveTo(lassoPath[0].x, lassoPath[0].y);
         for (let i = 1; i < lassoPath.length; i++) {
-          ctx.lineTo(lassoPath[i].x, lassoPath[i].y - contentOffsetY);
+          ctx.lineTo(lassoPath[i].x, lassoPath[i].y);
         }
         ctx.closePath();
 
@@ -179,7 +179,7 @@ export function useCanvasRenderer({
         if (isSingleGeometric && selectedStroke) {
           const pageOffsetY = pageOffsets.get(selectedStroke.pageId || "") || 0;
           const startX = selectedStroke.x;
-          const startY = selectedStroke.y + pageOffsetY - contentOffsetY;
+          const startY = selectedStroke.y + pageOffsetY;
           const endX = startX + (selectedStroke.points?.[0]?.dx || 0);
           const endY = startY + (selectedStroke.points?.[0]?.dy || 0);
           if (selectedStroke.tool === "circle") {
@@ -197,9 +197,9 @@ export function useCanvasRenderer({
           rotation = selectedStroke.rotation || 0;
         } else {
           minX = selectionBounds.minX + (transformType === "move" ? dragDx : 0);
-          minY = selectionBounds.minY + (transformType === "move" ? dragDy : 0) - contentOffsetY;
+          minY = selectionBounds.minY + (transformType === "move" ? dragDy : 0);
           maxX = selectionBounds.maxX + (transformType === "move" ? dragDx : 0);
-          maxY = selectionBounds.maxY + (transformType === "move" ? dragDy : 0) - contentOffsetY;
+          maxY = selectionBounds.maxY + (transformType === "move" ? dragDy : 0);
         }
 
         const cx = (minX + maxX) / 2;
@@ -262,12 +262,8 @@ export function useCanvasRenderer({
       // 5. Draw active drawing stroke or shape preview (in progress)
       if (isDrawing && pointerStateBuffer.length > 0) {
         if (PERF_DEBUG) recordActiveDrawStart();
-        const bufferLocal = pointerStateBuffer.map((pt) => ({
-          ...pt,
-          y: pt.y - contentOffsetY,
-        }));
         if (drawTool === "pen" || drawTool === "highlighter") {
-          drawActiveStroke(ctx, bufferLocal, drawColor, drawWidth, drawTool === "highlighter");
+          drawActiveStroke(ctx, pointerStateBuffer, drawColor, drawWidth, drawTool === "highlighter");
         } else if (
           [
             "line",
@@ -281,8 +277,8 @@ export function useCanvasRenderer({
             "ellipse",
           ].includes(drawTool)
         ) {
-          const start = bufferLocal[0];
-          const end = bufferLocal[bufferLocal.length - 1];
+          const start = pointerStateBuffer[0];
+          const end = pointerStateBuffer[pointerStateBuffer.length - 1];
           const shapeWidth = Math.max(2, Math.min(6, drawWidth));
           drawActiveShapePreview(ctx, drawTool as any, start, end, drawColor, shapeWidth, fillColor);
         }

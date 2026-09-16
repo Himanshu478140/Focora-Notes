@@ -200,7 +200,7 @@ export function usePointerInteractions({
       canvas,
       zoom,
       viewportScrollRef?.current,
-      canvasContentOffsetRef?.current || 0,
+      0,
       0,
       canvasScreenTopRef?.current,
       canvasScreenLeftRef?.current
@@ -535,7 +535,7 @@ export function usePointerInteractions({
       rect,
       zoom,
       viewportScrollRef?.current,
-      canvasContentOffsetRef?.current || 0,
+      0,
       0,
       canvasScreenTopRef?.current,
       canvasScreenLeftRef?.current
@@ -1035,7 +1035,7 @@ export function usePointerInteractions({
           rect,
           zoom,
           viewportScrollRef?.current,
-          canvasContentOffsetRef?.current || 0,
+          0,
           0,
           canvasScreenTopRef?.current,
           canvasScreenLeftRef?.current

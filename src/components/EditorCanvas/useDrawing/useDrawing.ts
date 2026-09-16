@@ -64,18 +64,11 @@ export function useDrawing({
       canvasScreenTopRef.current = containerRect.top;
       canvasScreenLeftRef.current = containerRect.left;
 
-      // Virtualization window shift check
-      const SHIFT_THRESHOLD = 150;
-      const currentOffset = canvasContentOffsetRef.current;
-      const diff = Math.abs(scrollTop - currentOffset);
-
-      if (diff > SHIFT_THRESHOLD) {
-        canvasContentOffsetRef.current = scrollTop;
-        if (pageCanvasRef.current) {
-          pageCanvasRef.current.style.transform = `translate3d(0px, ${scrollTop}px, 0px)`;
-        }
-        redrawRef.current?.();
+      // Trigger canvas redraw on scroll using fixed-viewport transform
+      if (pageCanvasRef.current && pageCanvasRef.current.style.transform !== "translate3d(0px, 0px, 0px)") {
+        pageCanvasRef.current.style.transform = "translate3d(0px, 0px, 0px)";
       }
+      redrawRef.current?.();
     };
 
     updateScroll();
